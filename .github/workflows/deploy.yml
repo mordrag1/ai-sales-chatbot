@@ -1,0 +1,27 @@
+name: Deploy to cdn.weba-ai.com
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy via rsync
+        env:
+          RSYNC_RSH: "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no"
+        run: |
+          rsync -az \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude="vendor" \
+            ./ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/www-root/data/www/cdn.weba-ai.com
