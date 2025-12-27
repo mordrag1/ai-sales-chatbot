@@ -142,21 +142,22 @@ echo <<<'JS'
             position: fixed;
             right: 24px;
             bottom: 40px;
-            padding: 0 16px;
-            height: 54px;
+            padding: 0 22px;
+            height: 60px;
+            min-width: 180px;
             border-radius: 999px;
             border: none;
             background: linear-gradient(180deg, #22d3ee, #2563eb);
             color: #fff;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.03em;
             cursor: pointer;
-            box-shadow: 0 10px 35px rgba(37, 99, 235, 0.35);
+            box-shadow: 0 12px 40px rgba(37, 99, 235, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 12px;
             animation: salesbot-pulse 3s ease infinite;
         }
         .salesbot-toggle .salesbot-toggle-label {
@@ -182,27 +183,21 @@ echo <<<'JS'
                 box-shadow: 0 18px 50px rgba(37, 99, 235, 0.45);
             }
         }
-        .salesbot-widget.mobile-fullscreen {
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 0;
-            width: 100vw;
-            max-width: 100vw;
-            min-width: 100vw;
-            max-height: 100vh;
-            min-height: 100vh;
-            border-radius: 0;
-            padding: 0;
-            resize: none;
-            border: none;
-            box-shadow: none;
+        .salesbot-widget.mobile-expanded {
+            bottom: 20px;
+            right: 8px;
+            width: calc(100vw - 32px);
+            max-width: calc(100vw - 32px);
+            min-height: 60vh;
+            max-height: 80vh;
+            border-radius: 16px;
+            padding-bottom: 8px;
         }
-        .salesbot-widget.mobile-fullscreen .salesbot-messages {
-            padding-bottom: 140px;
+        .salesbot-widget.mobile-expanded .salesbot-messages {
+            padding-bottom: 120px;
         }
-        .salesbot-widget.mobile-fullscreen .salesbot-form {
-            padding: 18px;
+        .salesbot-widget.mobile-expanded .salesbot-form {
+            padding: 12px 16px;
         }
         @media (max-width: 768px) {
             .salesbot-toggle {
@@ -261,10 +256,10 @@ echo <<<'JS'
 
     const applyResponsiveState = () => {
         if (!widget.classList.contains('visible')) {
-            widget.classList.remove('mobile-fullscreen');
+            widget.classList.remove('mobile-expanded');
             return;
         }
-        widget.classList.toggle('mobile-fullscreen', isMobileViewport());
+        widget.classList.toggle('mobile-expanded', isMobileViewport());
     };
 
     const openWidget = () => {
