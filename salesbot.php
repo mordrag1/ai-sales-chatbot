@@ -105,12 +105,10 @@ echo <<<'JS'
         .salesbot-form {
             display: flex;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
-            position: sticky;
-            bottom: 0;
             background: #0f172a;
             padding: 12px;
             gap: 8px;
-            z-index: 2;
+            align-items: center;
         }
         .salesbot-input {
             flex: 1;

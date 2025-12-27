@@ -39,6 +39,10 @@ Every `botId` is resolved against `data/clients.php`, so you can maintain per-cl
 
 Host `salesbot.php` and `api/chat.php` (or their rewrites) under `cdn.weba-ai.com`. The API endpoint must allow CORS if served from a different subdomain than the host page or be served from the same origin for simplicity during the demo.
 
+## Cache busting
+
+`demo/index.html` injects both `demo.css` and `salesbot.php` with a random `cb` query parameter so each refresh pulls the latest files while you develop. Replicate the same pattern on the CDN if those assets sit behind aggressive caches.
+
 ## What's shipped in this iteration
 
 - demo page with a floating manager button and chat window (`demo/index.html`);
