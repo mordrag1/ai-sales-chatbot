@@ -24,6 +24,7 @@ echo <<<'JS'
         typingLabel: scriptTag?.dataset.salesbotTypingLabel || 'Operator typing...',
         typingDelay: Number(scriptTag?.dataset.salesbotTypingDelay) || 900,
         soundSrc: scriptTag?.dataset.salesbotSound || 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=',
+        soundEnabled: String(scriptTag?.dataset.salesbotSoundEnabled ?? 'true').toLowerCase() !== 'false',
         errorMessage: scriptTag?.dataset.salesbotError || 'Something went wrong. Please try again soon.',
     };
     const MOBILE_BREAKPOINT = 768;
@@ -42,8 +43,8 @@ echo <<<'JS'
         hasUnread: false,
     };
     let hasUnread = false;
-    const dingAudio = new Audio(config.soundSrc);
-    dingAudio.preload = 'auto';
+    const dingAudio = config.soundEnabled ? new Audio(config.soundSrc) : null;
+    dingAudio?.preload = 'auto';
 
     const style = document.createElement('style');
     style.textContent = `
@@ -424,7 +425,7 @@ echo <<<'JS'
             saveHistory();
         }
 
-        if (role === 'assistant' && playSound) {
+        if (role === 'assistant' && playSound && config.soundEnabled) {
             dingAudio?.play().catch(() => {});
             const shouldMarkUnread = !widget.classList.contains('visible');
             if (shouldMarkUnread) {

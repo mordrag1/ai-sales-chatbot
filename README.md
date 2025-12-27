@@ -40,6 +40,7 @@ Every `botId` is resolved against `data/clients.php`, so you can maintain per-cl
 - The widget header switches to “Operator Online” with its own green indicator while a conversation is active, and the floating toggle hides during that state. When the chat is hidden and a new AI message arrives, the toggle reappears with a green badge, animation, and sound until the visitor reopens the panel.
 - Every assistant reply renders after a short typing delay with a “Operator typing…” bubble so you can demonstrate the typing indicator, and the logic stores every message per `botId` in `localStorage` so the history survives page reloads while maintaining unread tracking.
 - The toggle always shows the green online dot, a separate yellow badge animates when replies arrive while the chat is hidden, and the panel smoothly fades in/out with a styled custom scrollbar so the floating interface never exposes default browser chrome.
+- Play a chime when the operator reply lands via the `data-salesbot-sound-enabled` flag (defaults to true) so you can silence the widget on noisy pages.
 
 ## CDN & deployment notes
 
