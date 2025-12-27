@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Salesbot demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: "Inter", system-ui, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #0f172a;
+            color: #fff;
+        }
+        h1 {
+            margin-bottom: 12px;
+        }
+        code {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Salesbot demo</h1>
+    <p>Встроенный виджет подключается скриптом с CDN (в реальном развертывании это <code>https://cdn.weba-ai.com/salesbot.php</code>).</p>
+    <p>Здесь мы используем локальный путь к скрипту и прокси-эндпоинту для тестовой итерации.</p>
+
+    <!-- Атрибуты можно использовать, чтобы каждый клиент указывал botId и endpoint -->
+    <script src="../salesbot.php"
+            data-salesbot-id="demo"
+            data-salesbot-user-id="demo-user"
+            data-api-url="../api/chat.php"
+            data-salesbot-title="Salesbot Demo"
+            data-salesbot-welcome="Здравствуйте! Напишите, и ИИ даст демо-ответ.">
+    </script>
+</body>
+</html>
+
