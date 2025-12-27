@@ -71,12 +71,14 @@ echo <<<'JS'
             visibility: hidden;
             pointer-events: none;
             resize: both;
+            will-change: transform, opacity;
         }
         .salesbot-widget.visible {
             transform: translateY(0);
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+            animation: salesbot-appear 0.35s ease;
         }
         .salesbot-widget *,
         .salesbot-widget *::before,
@@ -123,6 +125,18 @@ echo <<<'JS'
             display: flex;
             flex-direction: column;
             gap: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.45) rgba(15, 23, 42, 0.8);
+        }
+        .salesbot-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        .salesbot-messages::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.8);
+        }
+        .salesbot-messages::-webkit-scrollbar-thumb {
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.35);
         }
         .salesbot-message {
             padding: 10px 14px;
@@ -198,6 +212,7 @@ echo <<<'JS'
             justify-content: center;
             gap: 12px;
             animation: salesbot-pulse 3s ease infinite;
+            transition: opacity 0.25s ease, transform 0.25s ease;
         }
         .salesbot-toggle.animate-unread {
             animation: salesbot-notify 1.6s ease infinite;
@@ -213,16 +228,24 @@ echo <<<'JS'
             font-size: 11px;
             letter-spacing: 0.08em;
         }
-        .salesbot-toggle .salesbot-status-dot {
+        .salesbot-toggle .salesbot-toggle-status {
             width: 10px;
             height: 10px;
             border-radius: 50%;
             background: #34d399;
             box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.4);
+            opacity: 1;
+        }
+        .salesbot-toggle .salesbot-unread-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #facc15;
+            box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.5);
             opacity: 0;
             transition: opacity 0.2s ease;
         }
-        .salesbot-toggle.has-unread .salesbot-status-dot {
+        .salesbot-toggle.has-unread .salesbot-unread-dot {
             opacity: 1;
         }
         @keyframes salesbot-pulse {
@@ -241,6 +264,16 @@ echo <<<'JS'
             }
             50% {
                 transform: translateY(-4px);
+            }
+        }
+        @keyframes salesbot-appear {
+            from {
+                opacity: 0;
+                transform: translateY(32px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
             }
         }
         .salesbot-typing {
@@ -429,7 +462,7 @@ echo <<<'JS'
 
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
-    toggle.innerHTML = '<span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-status-dot" aria-hidden="true"></span>';
+    toggle.innerHTML = '<span class="salesbot-toggle-status" aria-hidden="true"></span><span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-unread-dot" aria-hidden="true"></span>';
     const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     const applyResponsiveState = () => {
