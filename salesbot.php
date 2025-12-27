@@ -130,6 +130,8 @@ echo <<<'JS'
             background: #10b981;
             color: #fff;
             padding: 0 18px;
+            min-width: 100px;
+            height: 44px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s ease;
@@ -159,6 +161,11 @@ echo <<<'JS'
             justify-content: center;
             gap: 12px;
             animation: salesbot-pulse 3s ease infinite;
+        }
+        .salesbot-toggle.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
         }
         .salesbot-toggle .salesbot-toggle-label {
             display: block;
@@ -252,6 +259,9 @@ echo <<<'JS'
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
     toggle.innerHTML = '<span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-status-dot" aria-hidden="true"></span>';
+    const updateToggleState = () => {
+        toggle.classList.toggle('hidden', widget.classList.contains('visible'));
+    };
     const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     const applyResponsiveState = () => {
@@ -269,12 +279,14 @@ echo <<<'JS'
         }
         widget.classList.add('visible');
         applyResponsiveState();
+        updateToggleState();
         input.focus();
     };
 
     const closeWidget = () => {
         widget.classList.remove('visible');
         applyResponsiveState();
+        updateToggleState();
     };
 
     toggle.addEventListener('click', () => {
@@ -286,8 +298,12 @@ echo <<<'JS'
     });
     document.body.appendChild(toggle);
 
-    window.addEventListener('resize', applyResponsiveState);
-    applyResponsiveState();
+    const handleResize = () => {
+        applyResponsiveState();
+        updateToggleState();
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
 
     const appendMessage = (role, text) => {
         const bubble = document.createElement('div');
