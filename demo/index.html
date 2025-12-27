@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Salesbot demo</title>
@@ -24,16 +24,16 @@
 </head>
 <body>
     <h1>Salesbot demo</h1>
-    <p>Встроенный виджет подключается скриптом с CDN (в реальном развертывании это <code>https://cdn.weba-ai.com/salesbot.php</code>).</p>
-    <p>Здесь мы используем локальный путь к скрипту и прокси-эндпоинту для тестовой итерации.</p>
+    <p>The embedded widget would normally load from a CDN (<code>https://cdn.weba-ai.com/salesbot.php</code>) so it can be dropped onto any client page.</p>
+    <p>This demo points at the local script and API proxy for the very first iteration.</p>
 
-    <!-- Атрибуты можно использовать, чтобы каждый клиент указывал botId и endpoint -->
+    <!-- Clients override botId / API endpoint via data attributes -->
     <script src="../salesbot.php"
             data-salesbot-id="demo"
             data-salesbot-user-id="demo-user"
             data-api-url="../api/chat.php"
             data-salesbot-title="Salesbot Demo"
-            data-salesbot-welcome="Здравствуйте! Напишите, и ИИ даст демо-ответ.">
+            data-salesbot-welcome="Hello! Send a message and the AI will respond with a demo."> 
     </script>
 </body>
 </html>

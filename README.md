@@ -1,50 +1,48 @@
 # Salesbot CDN widget
 
-Легкий PHP-стек для демонстрации:
+A lightweight PHP stack that demonstrates the CDN-delivered chat widget and its backend.
 
-1. `salesbot.php` — единственный скрипт, который будет раздаваться через `https://cdn.weba-ai.com/salesbot.php`.
-   Он вставляет виджет в `document.body`, читает `data-*` атрибуты и отправляет сообщения на `api/chat.php`.
-2. Каждый клиент указывает свой `botId` через `data-salesbot-id`. Это ключ для конфига в `data/clients.php`.
-3. `api/chat.php` показывает, какие данные будут приходить, и возвращает демо-ответ. В будущем здесь добавляется HTTP-запрос к `n8nWebhookUrl`.
-4. `demo/index.html` показывает, как подключить виджет и указать кастомные значения в атрибутах.
+1. `salesbot.php` is the single script that CDN clients include; it injects the widget, reads `data-*` attributes, and forwards messages to `api/chat.php`.
+2. Clients specify `data-salesbot-id` to choose which configuration from `data/clients.php` applies; each botId can point to a different n8n webhook.
+3. `api/chat.php` currently returns demo text but already exposes the mapped `n8nWebhookUrl`. In production it will proxy requests to n8n and relay the structured response.
+4. `demo/index.html` shows how to embed the widget with overrides for title, placeholder, and API endpoint.
 
-## Запуск локально
+## Running locally
 
-1. Убедитесь, что у вас есть PHP (например, `php -S localhost:8000`).
-2. Запустите сервер из корня репозитория:  
-   `php -S 0.0.0.0:8000`
-3. Откройте `http://localhost:8000/demo/index.html` и кликните по круглой иконке — появится чат.
+1. Install PHP or use any server that can serve PHP files.
+2. Start the server from the repo root, e.g. `php -S 0.0.0.0:8000`.
+3. Open `http://localhost:8000/demo/index.html` and click the manager button to launch the chat.
 
-## Как подключить к клиенту
-
-Клиент вставляет:
+## Client integration
 
 ```html
 <script src="https://cdn.weba-ai.com/salesbot.php"
         data-salesbot-id="client-alpha"
-        data-salesbot-user-id="user-123">
+        data-salesbot-user-id="user-123"
+        data-salesbot-title="Manager Online"
+        data-salesbot-placeholder="How can I help?"
+        data-salesbot-send-label="Send">
 </script>
 ```
 
-`botId` переводится в конфигурацию из `data/clients.php`. Каждое `botId` может ссылаться на свой `n8nWebhookUrl`.
+Every `botId` is resolved against `data/clients.php`, so you can maintain per-client metadata (label, n8n webhook URL, demo text).
 
-## Интеграция с n8n
+## Integrating with n8n
 
-`api/chat.php` сейчас отвечает тестовым текстом, но уже возвращает поле `n8nWebhookUrl`. В production:
+`api/chat.php` already returns the resolved `n8nWebhookUrl` so you can route the request to the right workflow. In production:
 
-1. Прокиньте `message + metadata` на `n8nWebhookUrl` (обычно это POST с JSON).
-2. Полученный ответ отдавайте обратно пользователю в формате `messages`.
-3. Можно кешировать, добавлять очереди, логировать события (см. TODO внутри файла).
+1. POST the payload `{ message, userId, botId }` plus any metadata to `n8nWebhookUrl`.
+2. Transform the workflow output into the `messages` array that the widget expects.
+3. Add caching, logging, throttling, or advanced routing as requirements evolve.
 
-## Автодеплой и CDN
+## CDN & deployment notes
 
-Для CDN достаточно, чтобы `cdn.weba-ai.com` отдавал `salesbot.php` и `api/chat.php` (возможно, через PHP runtime или edge-руту).
-`api/chat.php` должен быть доступен на том же домене (или иметь CORS), чтобы виджет мог посылать запросы. На этапе демо можно использовать одинаковые урлы для скрипта и API.
+Host `salesbot.php` and `api/chat.php` (or their rewrites) under `cdn.weba-ai.com`. The API endpoint must allow CORS if served from a different subdomain than the host page or be served from the same origin for simplicity during the demo.
 
-## Что сделано в первой итерации
+## What's shipped in this iteration
 
-- сайт-демо с кнопкой и чат-окном (`demo/index.html`);
-- CDN-скрипт, который работает без внешних библиотек и рендерит чат;
-- API-прокси, который читает `botId`, возвращает демо-ответ и сообщает, к какому `n8nWebhookUrl` нужно подключиться;
-- настройка для нескольких клиентов в `data/clients.php`.
+- demo page with a floating manager button and chat window (`demo/index.html`);
+- CDN widget (`salesbot.php`) that renders without dependencies and supports desktop/mobile layouts;
+- API proxy (`api/chat.php`) that reads `botId`, returns demo messages, and exposes the target `n8nWebhookUrl`;
+- client map (`data/clients.php`) with placeholders for multiple bots.
 

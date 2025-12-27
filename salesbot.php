@@ -23,6 +23,7 @@ echo <<<'JS'
         errorMessage: scriptTag?.dataset.salesbotError || 'Something went wrong. Please try again soon.',
     };
     const MOBILE_BREAKPOINT = 768;
+    let hasOpened = false;
 
     const style = document.createElement('style');
     style.textContent = `
@@ -38,6 +39,7 @@ echo <<<'JS'
             background: #0f172a;
             color: #fff;
             border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
             box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
             display: flex;
             flex-direction: column;
@@ -46,11 +48,15 @@ echo <<<'JS'
             transition: transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
             transform: translateY(25px);
             opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
             resize: both;
         }
         .salesbot-widget.visible {
             transform: translateY(0);
             opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
         .salesbot-header {
             padding: 16px;
@@ -71,6 +77,7 @@ echo <<<'JS'
         .salesbot-messages {
             flex: 1;
             padding: 12px;
+            padding-bottom: 90px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -97,16 +104,23 @@ echo <<<'JS'
         }
         .salesbot-form {
             display: flex;
-            border-top: 1px solid rgba(255,255,255,0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            bottom: 0;
+            background: #0f172a;
+            padding: 12px;
+            gap: 8px;
+            z-index: 2;
         }
         .salesbot-input {
             flex: 1;
             padding: 12px 14px;
             border: none;
             outline: none;
-            background: transparent;
+            background: rgba(255, 255, 255, 0.05);
             color: #fff;
             font-size: 14px;
+            border-radius: 10px;
         }
         .salesbot-submit {
             border: none;
@@ -178,9 +192,14 @@ echo <<<'JS'
             border-radius: 0;
             padding: 0;
             resize: none;
+            border: none;
+            box-shadow: none;
         }
         .salesbot-widget.mobile-fullscreen .salesbot-messages {
-            padding-bottom: 80px;
+            padding-bottom: 140px;
+        }
+        .salesbot-widget.mobile-fullscreen .salesbot-form {
+            padding: 18px;
         }
         @media (max-width: 768px) {
             .salesbot-toggle {
@@ -203,8 +222,7 @@ echo <<<'JS'
     closeButton.className = 'salesbot-close';
     closeButton.textContent = '✕';
     closeButton.addEventListener('click', () => {
-        widget.classList.remove('visible');
-        widget.classList.remove('mobile-fullscreen');
+        closeWidget();
     });
     header.appendChild(closeButton);
 
@@ -236,22 +254,42 @@ echo <<<'JS'
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
     toggle.innerHTML = '<span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-status-dot" aria-hidden="true"></span>';
-    toggle.addEventListener('click', () => {
-        widget.classList.toggle('visible');
-        if (widget.classList.contains('visible')) {
-            applyResponsiveState();
-            input.focus();
-        }
-    });
-    document.body.appendChild(toggle);
-
     const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     const applyResponsiveState = () => {
+        if (!widget.classList.contains('visible')) {
+            widget.classList.remove('mobile-fullscreen');
+            return;
+        }
         widget.classList.toggle('mobile-fullscreen', isMobileViewport());
     };
 
+    const openWidget = () => {
+        if (!hasOpened) {
+            appendMessage('assistant', config.welcomeMessage);
+            hasOpened = true;
+        }
+        widget.classList.add('visible');
+        applyResponsiveState();
+        input.focus();
+    };
+
+    const closeWidget = () => {
+        widget.classList.remove('visible');
+        applyResponsiveState();
+    };
+
+    toggle.addEventListener('click', () => {
+        if (widget.classList.contains('visible')) {
+            closeWidget();
+            return;
+        }
+        openWidget();
+    });
+    document.body.appendChild(toggle);
+
     window.addEventListener('resize', applyResponsiveState);
+    applyResponsiveState();
 
     const appendMessage = (role, text) => {
         const bubble = document.createElement('div');
@@ -304,17 +342,6 @@ echo <<<'JS'
         sendMessage(input.value);
     });
 
-    const initWidget = () => {
-        appendMessage('assistant', config.welcomeMessage);
-        applyResponsiveState();
-        widget.classList.add('visible');
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initWidget);
-    } else {
-        initWidget();
-    }
 })();
 JS;
 
