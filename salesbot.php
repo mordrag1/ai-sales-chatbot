@@ -11,21 +11,23 @@ echo <<<'JS'
         return scripts[scripts.length - 1];
     })();
 
+    const dataset = scriptTag ? scriptTag.dataset || {} : {};
+    const rawSoundEnabled = dataset.salesbotSoundEnabled;
     const config = {
-        botId: scriptTag?.dataset.salesbotId || 'demo',
-        userId: scriptTag?.dataset.salesbotUserId || 'guest',
-        apiUrl: scriptTag?.dataset.apiUrl || DEFAULT_API_URL,
-        title: scriptTag?.dataset.salesbotTitle || 'Salesbot',
-        operatorLabel: scriptTag?.dataset.salesbotOperatorLabel || 'Operator Online',
-        welcomeMessage: scriptTag?.dataset.salesbotWelcome || 'Hello! I am ready to assist with your questions.',
-        placeholder: scriptTag?.dataset.salesbotPlaceholder || 'Type your message...',
-        sendLabel: scriptTag?.dataset.salesbotSendLabel || 'Send',
-        sendingLabel: scriptTag?.dataset.salesbotSendingLabel || 'Sending...',
-        typingLabel: scriptTag?.dataset.salesbotTypingLabel || 'Operator typing...',
-        typingDelay: Number(scriptTag?.dataset.salesbotTypingDelay) || 900,
-        soundSrc: scriptTag?.dataset.salesbotSound || 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=',
-        soundEnabled: String(scriptTag?.dataset.salesbotSoundEnabled ?? 'true').toLowerCase() !== 'false',
-        errorMessage: scriptTag?.dataset.salesbotError || 'Something went wrong. Please try again soon.',
+        botId: dataset.salesbotId || 'demo',
+        userId: dataset.salesbotUserId || 'guest',
+        apiUrl: dataset.apiUrl || DEFAULT_API_URL,
+        title: dataset.salesbotTitle || 'Salesbot',
+        operatorLabel: dataset.salesbotOperatorLabel || 'Operator Online',
+        welcomeMessage: dataset.salesbotWelcome || 'Hello! I am ready to assist with your questions.',
+        placeholder: dataset.salesbotPlaceholder || 'Type your message...',
+        sendLabel: dataset.salesbotSendLabel || 'Send',
+        sendingLabel: dataset.salesbotSendingLabel || 'Sending...',
+        typingLabel: dataset.salesbotTypingLabel || 'Operator typing...',
+        typingDelay: Number(dataset.salesbotTypingDelay || '900'),
+        soundSrc: dataset.salesbotSound || 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=',
+        soundEnabled: rawSoundEnabled === undefined ? true : String(rawSoundEnabled).toLowerCase() !== 'false',
+        errorMessage: dataset.salesbotError || 'Something went wrong. Please try again soon.',
     };
     const MOBILE_BREAKPOINT = 768;
     let hasOpened = false;
@@ -44,7 +46,9 @@ echo <<<'JS'
     };
     let hasUnread = false;
     const dingAudio = config.soundEnabled ? new Audio(config.soundSrc) : null;
-    dingAudio?.preload = 'auto';
+    if (dingAudio) {
+        dingAudio.preload = 'auto';
+    }
 
     const style = document.createElement('style');
     style.textContent = `
