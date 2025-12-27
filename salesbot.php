@@ -58,6 +58,11 @@ echo <<<'JS'
             visibility: visible;
             pointer-events: auto;
         }
+        .salesbot-widget *,
+        .salesbot-widget *::before,
+        .salesbot-widget *::after {
+            box-sizing: border-box;
+        }
         .salesbot-header {
             padding: 16px;
             font-weight: 600;
@@ -76,12 +81,11 @@ echo <<<'JS'
         }
         .salesbot-messages {
             flex: 1;
-            padding: 12px;
-            padding-bottom: 90px;
+            padding: 16px 16px 8px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
         }
         .salesbot-message {
             padding: 10px 14px;
@@ -104,11 +108,12 @@ echo <<<'JS'
         }
         .salesbot-form {
             display: flex;
+            align-items: center;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
             background: #0f172a;
-            padding: 12px;
-            gap: 8px;
-            align-items: center;
+            padding: 12px 16px;
+            gap: 12px;
+            flex-shrink: 0;
         }
         .salesbot-input {
             flex: 1;
