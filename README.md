@@ -35,6 +35,11 @@ Every `botId` is resolved against `data/clients.php`, so you can maintain per-cl
 2. Transform the workflow output into the `messages` array that the widget expects.
 3. Add caching, logging, throttling, or advanced routing as requirements evolve.
 
+## Operator state & persistence
+
+- The widget header switches to “Operator Online” with its own green indicator while a conversation is active, and the floating toggle hides during that state. When the chat is hidden and a new AI message arrives, the toggle reappears with a green badge, animation, and sound until the visitor reopens the panel.
+- Every assistant reply renders after a short typing delay with a “Operator typing…” bubble so you can demonstrate the typing indicator, and the logic stores every message per `botId` in `localStorage` so the history survives page reloads while maintaining unread tracking.
+
 ## CDN & deployment notes
 
 Host `salesbot.php` and `api/chat.php` (or their rewrites) under `cdn.weba-ai.com`. The API endpoint must allow CORS if served from a different subdomain than the host page or be served from the same origin for simplicity during the demo.

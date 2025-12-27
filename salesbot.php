@@ -16,14 +16,34 @@ echo <<<'JS'
         userId: scriptTag?.dataset.salesbotUserId || 'guest',
         apiUrl: scriptTag?.dataset.apiUrl || DEFAULT_API_URL,
         title: scriptTag?.dataset.salesbotTitle || 'Salesbot',
+        operatorLabel: scriptTag?.dataset.salesbotOperatorLabel || 'Operator Online',
         welcomeMessage: scriptTag?.dataset.salesbotWelcome || 'Hello! I am ready to assist with your questions.',
         placeholder: scriptTag?.dataset.salesbotPlaceholder || 'Type your message...',
         sendLabel: scriptTag?.dataset.salesbotSendLabel || 'Send',
         sendingLabel: scriptTag?.dataset.salesbotSendingLabel || 'Sending...',
+        typingLabel: scriptTag?.dataset.salesbotTypingLabel || 'Operator typing...',
+        typingDelay: Number(scriptTag?.dataset.salesbotTypingDelay) || 900,
+        soundSrc: scriptTag?.dataset.salesbotSound || 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=',
         errorMessage: scriptTag?.dataset.salesbotError || 'Something went wrong. Please try again soon.',
     };
     const MOBILE_BREAKPOINT = 768;
     let hasOpened = false;
+    const STORAGE_KEY = `salesbot-chat-${config.botId}`;
+    const HISTORY_LIMIT = 80;
+    const storage = (() => {
+        try {
+            return window.localStorage;
+        } catch {
+            return null;
+        }
+    })();
+    let historyState = {
+        messages: [],
+        hasUnread: false,
+    };
+    let hasUnread = false;
+    const dingAudio = new Audio(config.soundSrc);
+    dingAudio.preload = 'auto';
 
     const style = document.createElement('style');
     style.textContent = `
@@ -70,6 +90,23 @@ echo <<<'JS'
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
+        }
+        .salesbot-title-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .salesbot-header-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #34d399;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .salesbot-header-status.visible {
+            opacity: 1;
         }
         .salesbot-close {
             background-color: transparent;
@@ -162,6 +199,9 @@ echo <<<'JS'
             gap: 12px;
             animation: salesbot-pulse 3s ease infinite;
         }
+        .salesbot-toggle.animate-unread {
+            animation: salesbot-notify 1.6s ease infinite;
+        }
         .salesbot-toggle.hidden {
             opacity: 0;
             pointer-events: none;
@@ -179,6 +219,11 @@ echo <<<'JS'
             border-radius: 50%;
             background: #34d399;
             box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.4);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .salesbot-toggle.has-unread .salesbot-status-dot {
+            opacity: 1;
         }
         @keyframes salesbot-pulse {
             0%, 100% {
@@ -189,6 +234,23 @@ echo <<<'JS'
                 transform: translateY(-2px) scale(1.01);
                 box-shadow: 0 18px 50px rgba(37, 99, 235, 0.45);
             }
+        }
+        @keyframes salesbot-notify {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-4px);
+            }
+        }
+        .salesbot-typing {
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 70%;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f3f4f6;
+            font-style: italic;
+            align-self: flex-start;
         }
         .salesbot-widget.mobile-expanded {
             bottom: 20px;
@@ -221,7 +283,14 @@ echo <<<'JS'
 
     const header = document.createElement('div');
     header.className = 'salesbot-header';
-    header.innerHTML = `<span>${config.title}</span>`;
+    header.innerHTML = `
+        <div class="salesbot-title-wrap">
+            <span class="salesbot-header-status"></span>
+            <span class="salesbot-title-text">${config.title}</span>
+        </div>
+    `;
+    const headerTitleText = header.querySelector('.salesbot-title-text');
+    const headerStatusDot = header.querySelector('.salesbot-header-status');
 
     const closeButton = document.createElement('button');
     closeButton.className = 'salesbot-close';
@@ -230,6 +299,13 @@ echo <<<'JS'
         closeWidget();
     });
     header.appendChild(closeButton);
+
+    const setHeaderState = (isOnline) => {
+        if (headerTitleText) {
+            headerTitleText.textContent = isOnline ? config.operatorLabel : config.title;
+        }
+        headerStatusDot?.classList.toggle('visible', isOnline);
+    };
 
     const messagesEl = document.createElement('div');
     messagesEl.className = 'salesbot-messages';
@@ -251,17 +327,109 @@ echo <<<'JS'
     form.appendChild(input);
     form.appendChild(submit);
 
+    const typingIndicator = document.createElement('div');
+    typingIndicator.className = 'salesbot-typing';
+    typingIndicator.textContent = config.typingLabel;
+    let typingActive = false;
+
+    const saveHistory = () => {
+        if (!storage) {
+            return;
+        }
+        const trimmed = historyState.messages.slice(-HISTORY_LIMIT);
+        historyState.messages = trimmed;
+        historyState.hasUnread = hasUnread;
+        try {
+            storage.setItem(STORAGE_KEY, JSON.stringify(historyState));
+        } catch {
+            // ignore storage errors
+        }
+    };
+
+    const showTypingIndicator = () => {
+        if (typingActive) {
+            return;
+        }
+        typingActive = true;
+        messagesEl.appendChild(typingIndicator);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const hideTypingIndicator = () => {
+        if (!typingActive) {
+            return;
+        }
+        typingActive = false;
+        typingIndicator.remove();
+    };
+
+    const setUnread = (value) => {
+        hasUnread = value;
+        toggle?.classList?.toggle('has-unread', value && !widget.classList.contains('visible'));
+        if (value && !widget.classList.contains('visible')) {
+            toggle?.classList?.add('animate-unread');
+        } else {
+            toggle?.classList?.remove('animate-unread');
+        }
+        saveHistory();
+    };
+
+    const appendMessage = (role, text, { persist = false, isHistory = false, playSound = true } = {}) => {
+        const bubble = document.createElement('div');
+        bubble.className = `salesbot-message ${role}`;
+        bubble.textContent = text;
+        messagesEl.appendChild(bubble);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        if (persist && !isHistory) {
+            historyState.messages.push({
+                role,
+                text,
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                timestamp: Date.now(),
+            });
+            saveHistory();
+        }
+
+        if (role === 'assistant' && playSound) {
+            dingAudio?.play().catch(() => {});
+            const shouldMarkUnread = !widget.classList.contains('visible');
+            if (shouldMarkUnread) {
+                setUnread(true);
+            }
+        }
+    };
+
+    const loadHistory = () => {
+        if (!storage) {
+            return;
+        }
+        try {
+            const stored = JSON.parse(storage.getItem(STORAGE_KEY) || 'null');
+            if (stored?.messages?.length) {
+                historyState.messages = stored.messages;
+                historyState.hasUnread = !!stored.hasUnread;
+                historyState.messages.forEach((entry) => {
+                    appendMessage(entry.role, entry.text, { isHistory: true, playSound: false });
+                });
+                hasUnread = historyState.hasUnread;
+            }
+        } catch {
+            // ignore corrupt storage
+        }
+    };
+
     widget.appendChild(header);
     widget.appendChild(messagesEl);
     widget.appendChild(form);
+
+    loadHistory();
+    setHeaderState(false);
     document.body.appendChild(widget);
 
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
     toggle.innerHTML = '<span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-status-dot" aria-hidden="true"></span>';
-    const updateToggleState = () => {
-        toggle.classList.toggle('hidden', widget.classList.contains('visible'));
-    };
     const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     const applyResponsiveState = () => {
@@ -272,12 +440,19 @@ echo <<<'JS'
         widget.classList.toggle('mobile-expanded', isMobileViewport());
     };
 
+    const updateToggleState = () => {
+        toggle.classList.toggle('hidden', widget.classList.contains('visible'));
+        toggle.classList.toggle('has-unread', hasUnread && !widget.classList.contains('visible'));
+    };
+
     const openWidget = () => {
         if (!hasOpened) {
             appendMessage('assistant', config.welcomeMessage);
             hasOpened = true;
         }
         widget.classList.add('visible');
+        setHeaderState(true);
+        setUnread(false);
         applyResponsiveState();
         updateToggleState();
         input.focus();
@@ -285,6 +460,7 @@ echo <<<'JS'
 
     const closeWidget = () => {
         widget.classList.remove('visible');
+        setHeaderState(false);
         applyResponsiveState();
         updateToggleState();
     };
@@ -298,6 +474,8 @@ echo <<<'JS'
     });
     document.body.appendChild(toggle);
 
+    setUnread(historyState.hasUnread);
+
     const handleResize = () => {
         applyResponsiveState();
         updateToggleState();
@@ -305,26 +483,32 @@ echo <<<'JS'
     window.addEventListener('resize', handleResize);
     handleResize();
 
-    const appendMessage = (role, text) => {
-        const bubble = document.createElement('div');
-        bubble.className = `salesbot-message ${role}`;
-        bubble.textContent = text;
-        messagesEl.appendChild(bubble);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-    };
-
     const setLoading = (isLoading) => {
         submit.disabled = isLoading;
         submit.textContent = isLoading ? config.sendingLabel : config.sendLabel;
+    };
+
+    const deliverAssistantPayload = (payloadMessages) => {
+        hideTypingIndicator();
+        (payloadMessages || []).forEach((message) => {
+            appendMessage(message.role || 'assistant', message.text || '', { persist: true });
+        });
+    };
+
+    const handleFailedResponse = () => {
+        hideTypingIndicator();
+        appendMessage('assistant', config.errorMessage, { persist: true });
     };
 
     const sendMessage = (text) => {
         if (!text.trim()) {
             return;
         }
-        appendMessage('user', text);
+        appendMessage('user', text, { persist: true, playSound: false });
         input.value = '';
+        input.blur();
         setLoading(true);
+        showTypingIndicator();
 
         fetch(config.apiUrl, {
             method: 'POST',
@@ -339,12 +523,14 @@ echo <<<'JS'
         })
             .then((response) => response.json())
             .then((payload) => {
-                (payload.messages || []).forEach((message) => {
-                    appendMessage(message.role || 'assistant', message.text || '');
-                });
+                setTimeout(() => {
+                    deliverAssistantPayload(payload.messages);
+                }, config.typingDelay);
             })
             .catch(() => {
-                appendMessage('assistant', config.errorMessage);
+                setTimeout(() => {
+                    handleFailedResponse();
+                }, config.typingDelay);
             })
             .finally(() => {
                 setLoading(false);
