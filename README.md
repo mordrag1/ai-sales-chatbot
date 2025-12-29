@@ -27,6 +27,8 @@ A lightweight PHP stack that demonstrates the CDN-delivered chat widget and its 
 
 Every `botId` is resolved against `data/clients.php`, so you can maintain per-client metadata (label, n8n webhook URL, demo text).
 
+`salesbot.php` also accepts `data-salesbot-client-id`, which is forwarded with every message and used server-side to select the right assistant configuration. Make sure the client-id you pass matches the value stored next to the assistant entry in `data/clients.php`.
+
 ## Integrating with n8n
 
 `api/chat.php` already returns the resolved `n8nWebhookUrl` so you can route the request to the right workflow. In production:

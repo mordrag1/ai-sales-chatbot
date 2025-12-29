@@ -26,14 +26,30 @@ $userId = $payload['userId'] ?? 'guest';
 $userMessage = trim((string) ($payload['message'] ?? ''));
 
 $clients = require __DIR__ . '/../data/clients.php';
-$client = $clients[$botId] ?? $clients['demo'];
+$client = null;
+$clientId = $payload['clientId'] ?? null;
+
+if ($clientId !== null) {
+    foreach ($clients as $candidate) {
+        if (($candidate['clientId'] ?? null) === (string) $clientId) {
+            $client = $candidate;
+            break;
+        }
+    }
+}
+
+if ($client === null) {
+    $client = $clients[$botId] ?? $clients['demo'];
+}
 
 $responseText = $client['demoResponse'] ?? 'The bot is not configured yet.';
 
 $response = [
     'botId' => $botId,
+    'clientId' => $clientId ?? $client['clientId'] ?? null,
     'userId' => $userId,
     'clientLabel' => $client['label'] ?? 'Unknown client',
+    'assistantName' => $client['assistantName'] ?? 'Assistant',
     'n8nWebhookUrl' => $client['n8nWebhookUrl'] ?? null,
     'messages' => [],
 ];
