@@ -5,7 +5,7 @@ header('Content-Type: application/javascript; charset=utf-8');
 
 echo <<<'JS'
 (function () {
-    const DEFAULT_API_URL = 'https://cdn.weba-ai.com/api/chat.php';
+    const DEFAULT_API_URL = 'https://gicujedrotan.beget.app/webhook/0af0b35a-4ea9-4487-a545-8c4608973c5a';
     const scriptTag = document.currentScript || (function () {
         const scripts = document.getElementsByTagName('script');
         return scripts[scripts.length - 1];
