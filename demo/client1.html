@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client 1 - AI Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" id="demo-stylesheet" href="">
+</head>
+<body>
+    <h1>Client 1 Demo</h1>
+    <p>This page demonstrates the chat widget for <strong>Client ID = 1</strong>.</p>
+    <p>The widget connects to the n8n webhook and routes messages to the appropriate assistant based on <code>clientId</code>.</p>
+
+    <script>
+        (function () {
+            const cacheBust = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+            const stylesheet = document.getElementById('demo-stylesheet');
+            stylesheet.href = `demo.css?cb=${cacheBust}`;
+
+            const widgetScript = document.createElement('script');
+            widgetScript.src = `../salesbot.php?cb=${cacheBust}`;
+            widgetScript.dataset.salesbotId = '1';
+            widgetScript.dataset.salesbotClientId = '1';
+            widgetScript.dataset.salesbotUserId = 'visitor-' + Math.random().toString(36).slice(2, 8);
+            widgetScript.dataset.salesbotTitle = 'Client 1 Support';
+            widgetScript.dataset.salesbotOperatorLabel = 'Assistant Online';
+            widgetScript.dataset.salesbotTypingLabel = 'Assistant typing...';
+            widgetScript.dataset.salesbotTypingDelay = '800';
+            widgetScript.dataset.salesbotWelcome = 'Hello! I am the assistant for Client 1. How can I help you today?';
+            document.body.appendChild(widgetScript);
+        })();
+    </script>
+</body>
+</html>
+
+
