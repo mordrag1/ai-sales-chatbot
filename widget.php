@@ -1,63 +1,65 @@
 <?php
 declare(strict_types=1);
 
+// Prevent PHP errors from breaking JS
+error_reporting(0);
+ini_set('display_errors', '0');
+
 header('Content-Type: application/javascript; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
-// Get hash from URL: widget.php?h=abc123 or widget/abc123
-$hash = $_GET['h'] ?? '';
-if ($hash === '' && preg_match('#/widget/([a-zA-Z0-9]{32})#', $_SERVER['REQUEST_URI'] ?? '', $m)) {
-    $hash = $m[1];
-}
+try {
+    // Get hash from URL: widget.php?h=abc123 or widget/abc123
+    $hash = $_GET['h'] ?? '';
+    if ($hash === '' && preg_match('#/widget/([a-zA-Z0-9]{32})#', $_SERVER['REQUEST_URI'] ?? '', $m)) {
+        $hash = $m[1];
+    }
 
-if ($hash === '' || strlen($hash) !== 32) {
-    echo 'console.error("Salesbot: invalid widget hash");';
-    exit;
-}
+    if ($hash === '' || strlen($hash) !== 32) {
+        echo 'console.error("Salesbot: invalid widget hash");';
+        exit;
+    }
 
-// Load environment
-$envFile = __DIR__ . '/.env';
-$env = [];
-if (file_exists($envFile)) {
-    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        if (strpos($line, '=') !== false && $line[0] !== '#') {
-            [$k, $v] = explode('=', $line, 2);
-            $env[trim($k)] = trim($v);
+    // Load environment
+    $envFile = __DIR__ . '/.env';
+    $env = [];
+    if (file_exists($envFile)) {
+        foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            if (strpos($line, '=') !== false && $line[0] !== '#') {
+                $parts = explode('=', $line, 2);
+                if (count($parts) === 2) {
+                    $env[trim($parts[0])] = trim($parts[1]);
+                }
+            }
         }
     }
-}
 
-$dbHost = $env['DB_HOST'] ?? 'localhost';
-$dbName = $env['DB_NAME'] ?? 'aicdn';
-$dbUser = $env['DB_USER'] ?? 'aicdn';
-$dbPass = $env['DB_PASS'] ?? '';
+    $dbHost = $env['DB_HOST'] ?? 'localhost';
+    $dbName = $env['DB_NAME'] ?? 'aicdn';
+    $dbUser = $env['DB_USER'] ?? 'aicdn';
+    $dbPass = $env['DB_PASS'] ?? '';
 
-try {
     $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
-} catch (PDOException $e) {
-    echo 'console.error("Salesbot: database connection failed");';
-    exit;
-}
 
-$stmt = $pdo->prepare('SELECT * FROM users WHERE widget_hash = ? LIMIT 1');
-$stmt->execute([$hash]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE widget_hash = ? LIMIT 1');
+    $stmt->execute([$hash]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$user) {
-    echo 'console.error("Salesbot: widget not found");';
-    exit;
-}
+    if (!$user) {
+        echo 'console.error("Salesbot: widget not found for hash");';
+        exit;
+    }
 
-// Build config from DB
-$clientId = $user['client_id'];
-$title = $user['widget_title'] ?? 'Support';
-$operatorLabel = $user['widget_operator_label'] ?? 'Operator Online';
-$welcomeMessage = $user['widget_welcome'] ?? 'Hello! How can I help you today?';
-$placeholder = $user['widget_placeholder'] ?? 'Type your message...';
-$typingLabel = $user['widget_typing_label'] ?? 'Operator typing...';
-$soundEnabled = (bool)($user['widget_sound_enabled'] ?? true);
+    // Build config from DB
+    $clientId = $user['client_id'];
+    $title = $user['widget_title'] ?? 'Support';
+    $operatorLabel = $user['widget_operator_label'] ?? 'Operator Online';
+    $welcomeMessage = $user['widget_welcome'] ?? 'Hello! How can I help you today?';
+    $placeholder = $user['widget_placeholder'] ?? 'Type your message...';
+    $typingLabel = $user['widget_typing_label'] ?? 'Operator typing...';
+    $soundEnabled = (bool)($user['widget_sound_enabled'] ?? true);
 
 // N8N webhook URL
 $webhookUrl = 'https://gicujedrotan.beget.app/webhook-test/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
@@ -639,4 +641,9 @@ echo <<<JS
 
 })();
 JS;
+
+} catch (Throwable $e) {
+    echo 'console.error("Salesbot: initialization failed - ' . addslashes($e->getMessage()) . '");';
+    exit;
+}
 
