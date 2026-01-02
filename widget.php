@@ -65,6 +65,10 @@ try {
 $webhookUrl = 'https://gicujedrotan.beget.app/webhook-test/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
 
 // Escape for JS
+// Build API URLs
+$cdnBaseUrl = 'https://cdn.weba-ai.com';
+$conversationApiUrl = $cdnBaseUrl . '/api/conversation.php';
+
 $jsConfig = json_encode([
     'clientId' => $clientId,
     'title' => $title,
@@ -74,24 +78,38 @@ $jsConfig = json_encode([
     'typingLabel' => $typingLabel,
     'soundEnabled' => $soundEnabled,
     'apiUrl' => $webhookUrl,
+    'conversationApiUrl' => $conversationApiUrl,
 ], JSON_UNESCAPED_UNICODE);
 
 echo <<<JS
 (function () {
     const config = $jsConfig;
     config.botId = config.clientId;
-    config.userId = 'visitor-' + Math.random().toString(36).slice(2, 10);
     config.sendLabel = 'Send';
     config.sendingLabel = 'Sending...';
     config.typingDelay = 900;
     config.soundSrc = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=';
     config.errorMessage = 'Something went wrong. Please try again soon.';
 
-    function initWidget() {
-    const MOBILE_BREAKPOINT = 768;
-    let hasOpened = false;
-    const STORAGE_KEY = `salesbot-chat-\${config.clientId}`;
-    const HISTORY_LIMIT = 80;
+    // Cookie helpers
+    const cookies = {
+        set: (name, value, days = 365) => {
+            try {
+                const expires = new Date(Date.now() + days * 864e5).toUTCString();
+                document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires + ';path=/;SameSite=Lax';
+            } catch {}
+        },
+        get: (name) => {
+            try {
+                const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+                return match ? decodeURIComponent(match[2]) : null;
+            } catch {
+                return null;
+            }
+        }
+    };
+
+    // Storage helpers (localStorage + cookies fallback)
     const storage = (() => {
         try {
             return window.localStorage;
@@ -99,11 +117,54 @@ echo <<<JS
             return null;
         }
     })();
+
+    const USER_ID_KEY = 'salesbot-user-' + config.clientId;
+    const COOKIE_USER_ID_KEY = 'sb_uid_' + config.clientId;
+
+    // Get or create userId from localStorage or cookies
+    const getUserId = () => {
+        let userId = null;
+        // Try localStorage first
+        if (storage) {
+            try {
+                userId = storage.getItem(USER_ID_KEY);
+            } catch {}
+        }
+        // Try cookies if not in localStorage
+        if (!userId) {
+            userId = cookies.get(COOKIE_USER_ID_KEY);
+        }
+        // Generate new if not found
+        if (!userId) {
+            userId = 'v-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        }
+        // Save to both storages
+        saveUserId(userId);
+        return userId;
+    };
+
+    const saveUserId = (userId) => {
+        if (storage) {
+            try {
+                storage.setItem(USER_ID_KEY, userId);
+            } catch {}
+        }
+        cookies.set(COOKIE_USER_ID_KEY, userId, 365);
+    };
+
+    config.userId = getUserId();
+
+    function initWidget() {
+    const MOBILE_BREAKPOINT = 768;
+    let hasOpened = false;
+    const STORAGE_KEY = 'salesbot-chat-' + config.clientId;
+    const HISTORY_LIMIT = 80;
     let historyState = {
         messages: [],
         hasUnread: false,
     };
     let hasUnread = false;
+    let conversationLoaded = false;
     const dingAudio = config.soundEnabled ? new Audio(config.soundSrc) : null;
     if (dingAudio) {
         dingAudio.preload = 'auto';
@@ -431,17 +492,11 @@ echo <<<JS
     typingIndicator.textContent = config.typingLabel;
     let typingActive = false;
 
-    const saveHistory = () => {
-        if (!storage) {
-            return;
-        }
-        const trimmed = historyState.messages.slice(-HISTORY_LIMIT);
-        historyState.messages = trimmed;
-        historyState.hasUnread = hasUnread;
-        try {
-            storage.setItem(STORAGE_KEY, JSON.stringify(historyState));
-        } catch {
-            // ignore storage errors
+    const saveHistory = (message = null, skipApiSave = false) => {
+        saveLocalHistory();
+        // Save to API if new message
+        if (message && !skipApiSave) {
+            saveMessageToApi(message);
         }
     };
 
@@ -473,21 +528,22 @@ echo <<<JS
         saveHistory();
     };
 
-    const appendMessage = (role, text, { persist = false, isHistory = false, playSound = true } = {}) => {
+    const appendMessage = (role, text, { persist = false, isHistory = false, playSound = true, skipApiSave = false } = {}) => {
         const bubble = document.createElement('div');
-        bubble.className = `salesbot-message \${role}`;
+        bubble.className = 'salesbot-message ' + role;
         bubble.textContent = text;
         messagesEl.appendChild(bubble);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         if (persist && !isHistory) {
-            historyState.messages.push({
+            const messageObj = {
                 role,
                 text,
-                id: `\${Date.now()}-\${Math.random().toString(36).slice(2, 6)}`,
+                id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
                 timestamp: Date.now(),
-            });
-            saveHistory();
+            };
+            historyState.messages.push(messageObj);
+            saveHistory(messageObj, skipApiSave);
         }
 
         if (role === 'assistant' && playSound && config.soundEnabled) {
@@ -499,23 +555,71 @@ echo <<<JS
         }
     };
 
-    const loadHistory = () => {
-        if (!storage) {
-            return;
+    // Save message to API
+    const saveMessageToApi = (message) => {
+        if (!config.conversationApiUrl) return;
+        try {
+            fetch(config.conversationApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    botId: config.botId,
+                    clientId: config.clientId,
+                    userId: config.userId,
+                    message: message,
+                    pageUrl: window.location.href,
+                    referrer: document.referrer || null,
+                }),
+            }).catch(() => {});
+        } catch {}
+    };
+
+    // Load history from API first, fallback to localStorage
+    const loadHistory = async () => {
+        // Try loading from API
+        if (config.conversationApiUrl) {
+            try {
+                const url = config.conversationApiUrl + '?client_id=' + encodeURIComponent(config.clientId) + '&user_id=' + encodeURIComponent(config.userId);
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.exists && data.dialog && data.dialog.length > 0) {
+                        conversationLoaded = true;
+                        historyState.messages = data.dialog;
+                        data.dialog.forEach((entry) => {
+                            appendMessage(entry.role, entry.text, { isHistory: true, playSound: false, skipApiSave: true });
+                        });
+                        // Save to localStorage as backup
+                        saveLocalHistory();
+                        return;
+                    }
+                }
+            } catch {}
         }
+        
+        // Fallback to localStorage
+        if (!storage) return;
         try {
             const stored = JSON.parse(storage.getItem(STORAGE_KEY) || 'null');
             if (stored?.messages?.length) {
                 historyState.messages = stored.messages;
                 historyState.hasUnread = !!stored.hasUnread;
                 historyState.messages.forEach((entry) => {
-                    appendMessage(entry.role, entry.text, { isHistory: true, playSound: false });
+                    appendMessage(entry.role, entry.text, { isHistory: true, playSound: false, skipApiSave: true });
                 });
                 hasUnread = historyState.hasUnread;
             }
-        } catch {
-            // ignore corrupt storage
-        }
+        } catch {}
+    };
+
+    const saveLocalHistory = () => {
+        if (!storage) return;
+        const trimmed = historyState.messages.slice(-HISTORY_LIMIT);
+        historyState.messages = trimmed;
+        historyState.hasUnread = hasUnread;
+        try {
+            storage.setItem(STORAGE_KEY, JSON.stringify(historyState));
+        } catch {}
     };
 
     widget.appendChild(header);
