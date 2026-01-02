@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Demo - One Line Integration</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            padding: 60px 24px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, #22d3ee, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p {
+            color: #94a3b8;
+            line-height: 1.7;
+            margin-bottom: 32px;
+        }
+        .code-block {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Fira Code', monospace;
+            color: #22d3ee;
+            font-size: 14px;
+        }
+        .highlight {
+            color: #facc15;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>One-Line Widget Integration</h1>
+        <p>
+            This page demonstrates the simplest way to integrate the Salesbot widget. 
+            Just add a single script tag with your unique widget hash. All configuration 
+            is loaded automatically from the CDN database.
+        </p>
+        
+        <div class="code-block">
+            <code>&lt;script src="https://cdn.weba-ai.com/widget.php?h=<span class="highlight">a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</span>"&gt;&lt;/script&gt;</code>
+        </div>
+        
+        <p>
+            The widget hash <code>a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code> is unique to each client. 
+            It pulls title, welcome message, operator label, and webhook configuration from the database.
+        </p>
+    </div>
+
+    <!-- One-line widget integration -->
+    <script src="https://cdn.weba-ai.com/widget.php?h=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"></script>
+</body>
+</html>
+

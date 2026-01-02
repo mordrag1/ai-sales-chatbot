@@ -2,35 +2,39 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Client 1 - AI Assistant</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" id="demo-stylesheet" href="">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            padding: 60px 24px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 16px;
+        }
+        p {
+            color: #94a3b8;
+            line-height: 1.7;
+        }
+    </style>
 </head>
 <body>
-    <h1>Client 1 Demo</h1>
-    <p>This page demonstrates the chat widget for <strong>Client ID = 1</strong>.</p>
-    <p>The widget connects to the n8n webhook and routes messages to the appropriate assistant based on <code>clientId</code>.</p>
+    <div class="container">
+        <h1>Client 1 Website</h1>
+        <p>This is a demo website for Client 1. The chat widget is loaded with one line of code.</p>
+    </div>
 
-    <script>
-        (function () {
-            const cacheBust = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-            const stylesheet = document.getElementById('demo-stylesheet');
-            stylesheet.href = `demo.css?cb=${cacheBust}`;
-
-            const widgetScript = document.createElement('script');
-            widgetScript.src = `../salesbot.php?cb=${cacheBust}`;
-            widgetScript.dataset.salesbotId = '1';
-            widgetScript.dataset.salesbotClientId = '1';
-            widgetScript.dataset.salesbotUserId = 'visitor-' + Math.random().toString(36).slice(2, 8);
-            widgetScript.dataset.salesbotTitle = 'Client 1 Support';
-            widgetScript.dataset.salesbotOperatorLabel = 'Assistant Online';
-            widgetScript.dataset.salesbotTypingLabel = 'Assistant typing...';
-            widgetScript.dataset.salesbotTypingDelay = '800';
-            widgetScript.dataset.salesbotWelcome = 'Hello! I am the assistant for Client 1. How can I help you today?';
-            document.body.appendChild(widgetScript);
-        })();
-    </script>
+    <!-- Widget for Client 1 (hash: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6) -->
+    <script src="https://cdn.weba-ai.com/widget.php?h=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"></script>
 </body>
 </html>
-
-
