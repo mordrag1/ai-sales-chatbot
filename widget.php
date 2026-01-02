@@ -68,6 +68,7 @@ $webhookUrl = 'https://gicujedrotan.beget.app/webhook-test/a60472fc-b4e1-4e83-92
 // Build API URLs
 $cdnBaseUrl = 'https://cdn.weba-ai.com';
 $conversationApiUrl = $cdnBaseUrl . '/api/conversation.php';
+$pollApiUrl = $cdnBaseUrl . '/api/poll.php';
 
 $jsConfig = json_encode([
     'clientId' => $clientId,
@@ -79,6 +80,7 @@ $jsConfig = json_encode([
     'soundEnabled' => $soundEnabled,
     'apiUrl' => $webhookUrl,
     'conversationApiUrl' => $conversationApiUrl,
+    'pollApiUrl' => $pollApiUrl,
 ], JSON_UNESCAPED_UNICODE);
 
 echo <<<JS
@@ -727,14 +729,24 @@ echo <<<JS
         })
             .then((response) => response.json())
             .then((payload) => {
-                setTimeout(() => {
-                    deliverAssistantPayload(payload.messages);
-                }, config.typingDelay);
+                // If n8n returns messages synchronously, show them
+                if (payload.messages && payload.messages.length > 0) {
+                    setTimeout(() => {
+                        deliverAssistantPayload(payload.messages);
+                    }, config.typingDelay);
+                } else {
+                    // Async mode: n8n will push later, keep typing indicator
+                    // Typing indicator will be hidden when push arrives
+                }
             })
             .catch(() => {
+                // Don't show error immediately - n8n might push later
+                // Set a timeout to hide typing if no push arrives
                 setTimeout(() => {
-                    handleFailedResponse();
-                }, config.typingDelay);
+                    if (typingActive) {
+                        hideTypingIndicator();
+                    }
+                }, 30000); // 30 second timeout
             })
             .finally(() => {
                 setLoading(false);
@@ -745,6 +757,52 @@ echo <<<JS
         event.preventDefault();
         sendMessage(input.value);
     });
+
+    // Polling for push messages from n8n
+    const POLL_INTERVAL = 2000; // 2 seconds
+    let pollTimer = null;
+    let isPolling = false;
+
+    const pollForMessages = async () => {
+        if (isPolling || !config.pollApiUrl) return;
+        isPolling = true;
+        
+        try {
+            const url = config.pollApiUrl + '?client_id=' + encodeURIComponent(config.clientId) + '&user_id=' + encodeURIComponent(config.userId);
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    hideTypingIndicator();
+                    data.messages.forEach((msg) => {
+                        appendMessage(msg.role || 'assistant', msg.text, { persist: true, skipApiSave: true });
+                    });
+                }
+            }
+        } catch {}
+        
+        isPolling = false;
+    };
+
+    const startPolling = () => {
+        if (pollTimer) return;
+        pollForMessages();
+        pollTimer = setInterval(pollForMessages, POLL_INTERVAL);
+    };
+
+    const stopPolling = () => {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    };
+
+    // Start polling when widget is initialized
+    startPolling();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', stopPolling);
+
     } // end initWidget
 
     // Wait for body to be ready before initializing

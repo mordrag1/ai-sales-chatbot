@@ -20,3 +20,4 @@ CREATE TABLE `conversations` (
   INDEX `idx_last_message` (`last_message_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
