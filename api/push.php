@@ -4,22 +4,14 @@ declare(strict_types=1);
 /**
  * Push endpoint for n8n to send messages to specific users.
  * 
- * POST /api/push.php
- * Body: {
- *   "clientId": "1",
- *   "userId": "v-abc123",
- *   "messages": [
- *     { "role": "assistant", "text": "Hello!" }
- *   ]
- * }
+ * Accepts both JSON body and form POST data:
  * 
- * Or single message format:
- * Body: {
- *   "clientId": "1", 
- *   "userId": "v-abc123",
- *   "role": "assistant",
- *   "text": "Hello!"
- * }
+ * POST /api/push.php
+ * Form data or JSON:
+ *   clientId (or client_id): "1"
+ *   userId (or user_id): "v-abc123"
+ *   text: "Hello!"
+ *   role: "assistant" (optional, defaults to "assistant")
  */
 
 error_reporting(0);
@@ -69,8 +61,32 @@ try {
     exit;
 }
 
+// Accept both JSON body and form POST data
+$payload = [];
+
+// First try to get from $_POST (form data)
+if (!empty($_POST)) {
+    $payload = $_POST;
+}
+
+// Also try JSON body
 $rawBody = file_get_contents('php://input');
-$payload = json_decode($rawBody ?: '{}', true) ?? [];
+if ($rawBody) {
+    $jsonPayload = json_decode($rawBody, true);
+    if (is_array($jsonPayload)) {
+        // Merge with POST, JSON takes precedence
+        $payload = array_merge($payload, $jsonPayload);
+    }
+}
+
+// Also check $_GET for query parameters
+if (!empty($_GET)) {
+    foreach ($_GET as $key => $value) {
+        if (!isset($payload[$key])) {
+            $payload[$key] = $value;
+        }
+    }
+}
 
 $clientId = $payload['clientId'] ?? $payload['client_id'] ?? '';
 $userId = $payload['userId'] ?? $payload['user_id'] ?? '';
