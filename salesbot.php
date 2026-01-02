@@ -29,6 +29,8 @@ echo <<<'JS'
         soundEnabled: rawSoundEnabled === undefined ? true : String(rawSoundEnabled).toLowerCase() !== 'false',
         errorMessage: dataset.salesbotError || 'Something went wrong. Please try again soon.',
     };
+
+    function initWidget() {
     const MOBILE_BREAKPOINT = 768;
     let hasOpened = false;
     const STORAGE_KEY = `salesbot-chat-${config.botId}`;
@@ -56,6 +58,7 @@ echo <<<'JS'
             position: fixed;
             right: 24px;
             bottom: 120px;
+            z-index: 2147483647;
             width: min(360px, 90vw);
             max-width: 420px;
             min-width: 260px;
@@ -200,6 +203,7 @@ echo <<<'JS'
             position: fixed;
             right: 24px;
             bottom: 40px;
+            z-index: 2147483647;
             padding: 0 22px;
             height: 60px;
             min-width: 180px;
@@ -579,6 +583,22 @@ echo <<<'JS'
         event.preventDefault();
         sendMessage(input.value);
     });
+    } // end initWidget
+
+    // Wait for body to be ready before initializing
+    if (document.body) {
+        initWidget();
+    } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initWidget);
+    } else {
+        // Fallback: poll for body
+        const interval = setInterval(() => {
+            if (document.body) {
+                clearInterval(interval);
+                initWidget();
+            }
+        }, 10);
+    }
 
 })();
 JS;
