@@ -137,11 +137,37 @@ if ($format === 'json') {
         'question' => $question,
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 } else {
-    // Plain text format as specified
-    $datasetFormatted = json_encode($datasetArray, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    // Plain text format - convert dataset array to readable text
+    $datasetText = '';
+    
+    if (is_array($datasetArray)) {
+        foreach ($datasetArray as $item) {
+            if (is_string($item)) {
+                // If item is a string, add it directly
+                $datasetText .= $item . "\n\n";
+            } elseif (is_array($item)) {
+                // If item is an object/array, format key-value pairs
+                foreach ($item as $key => $value) {
+                    if (is_string($value)) {
+                        $datasetText .= $key . ": " . $value . "\n";
+                    } elseif (is_array($value)) {
+                        $datasetText .= $key . ": " . implode(", ", $value) . "\n";
+                    } else {
+                        $datasetText .= $key . ": " . strval($value) . "\n";
+                    }
+                }
+                $datasetText .= "\n";
+            }
+        }
+    }
+    
+    // If dataset is empty or couldn't be parsed, show raw
+    if (trim($datasetText) === '') {
+        $datasetText = $user['dataset'] ?? '';
+    }
     
     echo "dataset:\n\n";
-    echo "*** " . $datasetFormatted . "\n\n";
+    echo "*** " . trim($datasetText) . "\n\n";
     echo "question: *** " . $question;
 }
 
