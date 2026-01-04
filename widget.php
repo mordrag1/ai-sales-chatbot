@@ -62,7 +62,7 @@ try {
     $soundEnabled = (bool)($user['widget_sound_enabled'] ?? true);
 
 // N8N webhook URL
-$webhookUrl = 'https://gicujedrotan.beget.app/webhook/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
+$webhookUrl = 'https://gicujedrotan.beget.app/webhook-test/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
 
 // Escape for JS
 // Build API URLs
