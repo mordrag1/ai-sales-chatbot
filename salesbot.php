@@ -5,7 +5,7 @@ header('Content-Type: application/javascript; charset=utf-8');
 
 echo <<<'JS'
 (function () {
-    const DEFAULT_API_URL = 'https://gicujedrotan.beget.app/webhook-test/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
+    const DEFAULT_API_URL = 'https://gicujedrotan.beget.app/webhook/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
     const scriptTag = document.currentScript || (function () {
         const scripts = document.getElementsByTagName('script');
         return scripts[scripts.length - 1];
