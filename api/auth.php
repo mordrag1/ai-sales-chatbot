@@ -296,3 +296,4 @@ switch ($action) {
         echo json_encode(['error' => 'Invalid action. Use: register, login, verify, refresh, logout']);
 }
 
+

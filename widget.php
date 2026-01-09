@@ -43,55 +43,170 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
 
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE widget_hash = ? LIMIT 1');
+    // First try to find bot by hash (new multi-bot system)
+    $stmt = $pdo->prepare('SELECT b.*, u.id as owner_id, u.client_id, u.plan_id, u.plan_expires_at 
+                           FROM bots b 
+                           JOIN users u ON b.user_id = u.id 
+                           WHERE b.bot_hash = ? AND b.is_active = 1 
+                           LIMIT 1');
     $stmt->execute([$hash]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $bot = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user) {
-        echo 'console.error("Salesbot: widget not found for hash");';
+    // Fallback: try old widget_hash in users table (backwards compatibility)
+    if (!$bot) {
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE widget_hash = ? LIMIT 1');
+        $stmt->execute([$hash]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            // Convert to bot format for backwards compatibility
+            $bot = [
+                'id' => null, // No bot ID for legacy
+                'user_id' => $user['id'],
+                'owner_id' => $user['id'],
+                'bot_hash' => $hash,
+                'client_id' => $user['client_id'],
+                'name' => $user['name'] ?? 'Bot',
+                'widget_title' => $user['widget_title'] ?? 'Support',
+                'widget_operator_label' => $user['widget_operator_label'] ?? 'Operator Online',
+                'widget_welcome' => $user['widget_welcome'],
+                'widget_placeholder' => $user['widget_placeholder'] ?? 'Type your message...',
+                'widget_typing_label' => $user['widget_typing_label'] ?? 'Operator typing...',
+                'widget_sound_enabled' => $user['widget_sound_enabled'] ?? 1,
+                'allowed_domains' => null,
+                'dataset' => $user['dataset'] ?? null,
+                'n8n_webhook_url' => null,
+                'plan_id' => $user['plan_id'] ?? 'demo',
+                'plan_expires_at' => $user['plan_expires_at'] ?? null,
+                'is_active' => 1,
+            ];
+        }
+    }
+
+    if (!$bot) {
+        echo 'console.error("Salesbot: widget not found");';
         exit;
     }
 
-    // Build config from DB
-    $clientId = $user['client_id'];
-    $title = $user['widget_title'] ?? 'Support';
-    $operatorLabel = $user['widget_operator_label'] ?? 'Operator Online';
-    $welcomeMessage = $user['widget_welcome'] ?? 'Hello! How can I help you today?';
-    $placeholder = $user['widget_placeholder'] ?? 'Type your message...';
-    $typingLabel = $user['widget_typing_label'] ?? 'Operator typing...';
-    $soundEnabled = (bool)($user['widget_sound_enabled'] ?? true);
+    // Get plan info
+    $stmt = $pdo->prepare('SELECT * FROM plans WHERE id = ? LIMIT 1');
+    $stmt->execute([$bot['plan_id']]);
+    $plan = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// N8N webhook URL
-$webhookUrl = 'https://gicujedrotan.beget.app/webhook/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
+    if (!$plan) {
+        // Default to demo plan
+        $plan = [
+            'id' => 'demo',
+            'name' => 'Demo',
+            'max_bots' => 1,
+            'max_messages_per_month' => 500,
+            'allowed_domains' => '["https://weba-ai.com"]',
+        ];
+    }
 
-// Escape for JS
-// Build API URLs
-$cdnBaseUrl = 'https://cdn.weba-ai.com';
-$conversationApiUrl = $cdnBaseUrl . '/api/conversation.php';
-$pollApiUrl = $cdnBaseUrl . '/api/poll.php';
+    // Check limits
+    $errorCode = null;
+    $errorMessage = null;
+    $upgradeUrl = 'https://weba-ai.com/dashboard';
 
-$jsConfig = json_encode([
-    'clientId' => $clientId,
-    'title' => $title,
-    'operatorLabel' => $operatorLabel,
-    'welcomeMessage' => $welcomeMessage,
-    'placeholder' => $placeholder,
-    'typingLabel' => $typingLabel,
-    'soundEnabled' => $soundEnabled,
-    'apiUrl' => $webhookUrl,
-    'conversationApiUrl' => $conversationApiUrl,
-    'pollApiUrl' => $pollApiUrl,
-], JSON_UNESCAPED_UNICODE);
+    // 1. Check domain restrictions
+    $planDomains = $plan['allowed_domains'] ? json_decode($plan['allowed_domains'], true) : null;
+    $botDomains = $bot['allowed_domains'] ? json_decode($bot['allowed_domains'], true) : null;
+    $allowedDomains = $botDomains ?? $planDomains; // Bot domains override plan domains
+
+    // 2. Check message limit for this month
+    $yearMonth = date('Y-m');
+    $maxMessages = $plan['max_messages_per_month'];
+
+    if ($maxMessages !== null) {
+        // Get usage for this user (all bots)
+        $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
+        $stmt->execute([$bot['owner_id'], $yearMonth]);
+        $usage = $stmt->fetch(PDO::FETCH_ASSOC);
+        $messagesUsed = (int)$usage['total'];
+
+        if ($messagesUsed >= (int)$maxMessages) {
+            $errorCode = 'MESSAGE_LIMIT_REACHED';
+            $errorMessage = "Message limit reached ({$messagesUsed}/{$maxMessages} this month). Upgrade your plan to continue.";
+        }
+    }
+
+    // Build config
+    $clientId = $bot['client_id'];
+    $botId = $bot['id'] ?? $clientId; // Use bot ID if available, else client_id
+    $title = $bot['widget_title'] ?? 'Support';
+    $operatorLabel = $bot['widget_operator_label'] ?? 'Operator Online';
+    $welcomeMessage = $bot['widget_welcome'] ?? 'Hello! How can I help you today?';
+    $placeholder = $bot['widget_placeholder'] ?? 'Type your message...';
+    $typingLabel = $bot['widget_typing_label'] ?? 'Operator typing...';
+    $soundEnabled = (bool)($bot['widget_sound_enabled'] ?? true);
+
+    // N8N webhook URL - use bot's custom URL or default
+    $webhookUrl = $bot['n8n_webhook_url'] ?? 'https://gicujedrotan.beget.app/webhook/a60472fc-b4e1-4e83-92c4-75c648b9dd80';
+
+    // Build API URLs
+    $cdnBaseUrl = 'https://cdn.weba-ai.com';
+    $conversationApiUrl = $cdnBaseUrl . '/api/conversation.php';
+    $pollApiUrl = $cdnBaseUrl . '/api/poll.php';
+    $usageApiUrl = $cdnBaseUrl . '/api/usage.php';
+
+    $jsConfig = json_encode([
+        'clientId' => $clientId,
+        'botId' => $botId,
+        'botHash' => $hash,
+        'title' => $title,
+        'operatorLabel' => $operatorLabel,
+        'welcomeMessage' => $welcomeMessage,
+        'placeholder' => $placeholder,
+        'typingLabel' => $typingLabel,
+        'soundEnabled' => $soundEnabled,
+        'apiUrl' => $webhookUrl,
+        'conversationApiUrl' => $conversationApiUrl,
+        'pollApiUrl' => $pollApiUrl,
+        'usageApiUrl' => $usageApiUrl,
+        'allowedDomains' => $allowedDomains,
+        'planId' => $plan['id'],
+        'planName' => $plan['name'],
+        'error' => $errorCode ? [
+            'code' => $errorCode,
+            'message' => $errorMessage,
+            'upgradeUrl' => $upgradeUrl,
+        ] : null,
+    ], JSON_UNESCAPED_UNICODE);
 
 echo <<<JS
 (function () {
     const config = $jsConfig;
-    config.botId = config.clientId;
     config.sendLabel = 'Send';
     config.sendingLabel = 'Sending...';
     config.typingDelay = 900;
     config.soundSrc = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=';
     config.errorMessage = 'Something went wrong. Please try again soon.';
+    config.developerUrl = 'https://weba-ai.com/';
+    config.upgradeUrl = 'https://weba-ai.com/dashboard';
+
+    // Check domain restrictions
+    const checkDomain = () => {
+        if (!config.allowedDomains || config.allowedDomains.length === 0) {
+            return { allowed: true };
+        }
+        const currentOrigin = window.location.origin;
+        const currentUrl = window.location.href;
+        
+        for (const domain of config.allowedDomains) {
+            // Check if domain matches origin or URL starts with domain
+            if (currentOrigin === domain || 
+                currentUrl.startsWith(domain) || 
+                currentOrigin.replace(/^https?:\\/\\//, '') === domain.replace(/^https?:\\/\\//, '')) {
+                return { allowed: true };
+            }
+        }
+        return { 
+            allowed: false, 
+            message: 'This widget is not authorized for domain: ' + currentOrigin + '. Allowed: ' + config.allowedDomains.join(', '),
+            code: 'DOMAIN_NOT_ALLOWED'
+        };
+    };
 
     // Cookie helpers
     const cookies = {
@@ -167,13 +282,30 @@ echo <<<JS
     };
     let hasUnread = false;
     let conversationLoaded = false;
+    let widgetBlocked = false;
+    let blockReason = null;
+    
     const dingAudio = config.soundEnabled ? new Audio(config.soundSrc) : null;
     if (dingAudio) {
         dingAudio.preload = 'auto';
     }
 
+    // Check for errors (domain, limits)
+    const domainCheck = checkDomain();
+    if (!domainCheck.allowed) {
+        widgetBlocked = true;
+        blockReason = {
+            code: domainCheck.code,
+            message: domainCheck.message,
+            upgradeUrl: config.upgradeUrl
+        };
+    } else if (config.error) {
+        widgetBlocked = true;
+        blockReason = config.error;
+    }
+
     const style = document.createElement('style');
-    style.textContent = `
+    style.textContent = \`
         .salesbot-widget {
             position: fixed;
             right: 24px;
@@ -313,6 +445,7 @@ echo <<<JS
             height: 44px;
             font-weight: 600;
             cursor: pointer;
+            border-radius: 10px;
             transition: background 0.2s ease;
         }
         .salesbot-submit:disabled {
@@ -437,7 +570,59 @@ echo <<<JS
                 box-shadow: 0 8px 25px rgba(37, 99, 235, 0.45);
             }
         }
-    `;
+        /* Error banner styles */
+        .salesbot-error-banner {
+            position: fixed;
+            right: 24px;
+            bottom: 110px;
+            z-index: 2147483646;
+            background: #dc2626;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-family: "Inter", system-ui, sans-serif;
+            font-size: 13px;
+            max-width: 320px;
+            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4);
+            display: none;
+        }
+        .salesbot-error-banner.visible {
+            display: block;
+            animation: salesbot-appear 0.3s ease;
+        }
+        .salesbot-error-banner a {
+            color: #fef08a;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+        .salesbot-error-banner a:hover {
+            color: #fef9c3;
+        }
+        /* Developer link styles */
+        .salesbot-footer {
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+        .salesbot-footer a {
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .salesbot-footer a:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        @media (max-width: 768px) {
+            .salesbot-error-banner {
+                right: 16px;
+                bottom: 85px;
+                max-width: calc(100vw - 32px);
+            }
+        }
+    \`;
     document.head.appendChild(style);
 
     const widget = document.createElement('div');
@@ -445,12 +630,12 @@ echo <<<JS
 
     const header = document.createElement('div');
     header.className = 'salesbot-header';
-    header.innerHTML = `
+    header.innerHTML = \`
         <div class="salesbot-title-wrap">
             <span class="salesbot-header-status"></span>
             <span class="salesbot-title-text">\${config.title}</span>
         </div>
-    `;
+    \`;
     const headerTitleText = header.querySelector('.salesbot-title-text');
     const headerStatusDot = header.querySelector('.salesbot-header-status');
 
@@ -489,10 +674,26 @@ echo <<<JS
     form.appendChild(input);
     form.appendChild(submit);
 
+    // Developer footer
+    const footer = document.createElement('div');
+    footer.className = 'salesbot-footer';
+    footer.innerHTML = 'Powered by <a href="' + config.developerUrl + '" target="_blank" rel="noopener">WebA AI</a>';
+
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'salesbot-typing';
     typingIndicator.textContent = config.typingLabel;
     let typingActive = false;
+
+    // Error banner for blocked widget
+    const errorBanner = document.createElement('div');
+    errorBanner.className = 'salesbot-error-banner';
+
+    if (widgetBlocked && blockReason) {
+        errorBanner.innerHTML = blockReason.message + ' <a href="' + blockReason.upgradeUrl + '" target="_blank">Upgrade Plan</a>';
+        input.disabled = true;
+        submit.disabled = true;
+        input.placeholder = 'Chat disabled';
+    }
 
     const saveHistory = (message = null, skipApiSave = false) => {
         saveLocalHistory();
@@ -557,7 +758,7 @@ echo <<<JS
         }
     };
 
-    // Save message to API
+    // Save message to API and track usage
     const saveMessageToApi = (message) => {
         if (!config.conversationApiUrl) return;
         try {
@@ -566,6 +767,7 @@ echo <<<JS
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     botId: config.botId,
+                    botHash: config.botHash,
                     clientId: config.clientId,
                     userId: config.userId,
                     message: message,
@@ -627,10 +829,12 @@ echo <<<JS
     widget.appendChild(header);
     widget.appendChild(messagesEl);
     widget.appendChild(form);
+    widget.appendChild(footer);
 
     loadHistory();
     setHeaderState(false);
     document.body.appendChild(widget);
+    document.body.appendChild(errorBanner);
 
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
@@ -652,15 +856,27 @@ echo <<<JS
 
     const openWidget = () => {
         if (!hasOpened) {
-            appendMessage('assistant', config.welcomeMessage);
+            if (!widgetBlocked) {
+                appendMessage('assistant', config.welcomeMessage);
+            } else {
+                appendMessage('assistant', '⚠️ ' + blockReason.message);
+            }
             hasOpened = true;
         }
         widget.classList.add('visible');
-        setHeaderState(true);
+        setHeaderState(!widgetBlocked);
         setUnread(false);
         applyResponsiveState();
         updateToggleState();
-        input.focus();
+        
+        // Show error banner if blocked
+        if (widgetBlocked) {
+            errorBanner.classList.add('visible');
+        }
+        
+        if (!widgetBlocked) {
+            input.focus();
+        }
     };
 
     const closeWidget = () => {
@@ -668,6 +884,7 @@ echo <<<JS
         setHeaderState(false);
         applyResponsiveState();
         updateToggleState();
+        errorBanner.classList.remove('visible');
     };
 
     toggle.addEventListener('click', () => {
@@ -689,7 +906,7 @@ echo <<<JS
     handleResize();
 
     const setLoading = (isLoading) => {
-        submit.disabled = isLoading;
+        submit.disabled = isLoading || widgetBlocked;
         submit.textContent = isLoading ? config.sendingLabel : config.sendLabel;
     };
 
@@ -706,7 +923,7 @@ echo <<<JS
     };
 
     const sendMessage = (text) => {
-        if (!text.trim()) {
+        if (!text.trim() || widgetBlocked) {
             return;
         }
         appendMessage('user', text, { persist: true, playSound: false });
@@ -722,6 +939,7 @@ echo <<<JS
             },
             body: JSON.stringify({
                 botId: config.botId,
+                botHash: config.botHash,
                 clientId: config.clientId,
                 userId: config.userId,
                 message: text,
@@ -729,6 +947,19 @@ echo <<<JS
         })
             .then((response) => response.json())
             .then((payload) => {
+                // Check if error returned (e.g., limit reached)
+                if (payload.error) {
+                    hideTypingIndicator();
+                    widgetBlocked = true;
+                    blockReason = payload.error;
+                    input.disabled = true;
+                    submit.disabled = true;
+                    errorBanner.innerHTML = payload.error.message + ' <a href="' + config.upgradeUrl + '" target="_blank">Upgrade Plan</a>';
+                    errorBanner.classList.add('visible');
+                    appendMessage('assistant', '⚠️ ' + payload.error.message, { persist: false });
+                    return;
+                }
+                
                 // If n8n returns messages synchronously, show them
                 if (payload.messages && payload.messages.length > 0) {
                     setTimeout(() => {
@@ -764,7 +995,7 @@ echo <<<JS
     let isPolling = false;
 
     const pollForMessages = async () => {
-        if (isPolling || !config.pollApiUrl) return;
+        if (isPolling || !config.pollApiUrl || widgetBlocked) return;
         isPolling = true;
         
         try {
@@ -785,7 +1016,7 @@ echo <<<JS
     };
 
     const startPolling = () => {
-        if (pollTimer) return;
+        if (pollTimer || widgetBlocked) return;
         pollForMessages();
         pollTimer = setInterval(pollForMessages, POLL_INTERVAL);
     };
@@ -797,8 +1028,10 @@ echo <<<JS
         }
     };
 
-    // Start polling when widget is initialized
-    startPolling();
+    // Start polling when widget is initialized (only if not blocked)
+    if (!widgetBlocked) {
+        startPolling();
+    }
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', stopPolling);
@@ -827,4 +1060,3 @@ JS;
     echo 'console.error("Salesbot: initialization failed - ' . addslashes($e->getMessage()) . '");';
     exit;
 }
-

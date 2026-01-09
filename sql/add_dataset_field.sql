@@ -7,3 +7,4 @@ ALTER TABLE `users` ADD COLUMN `dataset` JSON NULL AFTER `widget_sound_enabled`;
 -- UPDATE users SET dataset = '[{"key": "value"}, {"another": "data"}]' WHERE client_id = '1';
 
 
+

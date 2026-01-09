@@ -20,3 +20,4 @@ CREATE INDEX `idx_users_auth_token` ON `users` (`auth_token`, `token_expires_at`
 -- Add index for status
 CREATE INDEX `idx_users_status` ON `users` (`status`);
 
+
