@@ -203,10 +203,17 @@ echo <<<JS
 
     // Check domain restrictions
     const checkDomain = () => {
+        const currentOrigin = window.location.origin;
+        const currentHostname = window.location.hostname;
+        
+        // Always allow weba-ai.com (our own dashboard)
+        if (currentHostname === 'weba-ai.com' || currentHostname === 'www.weba-ai.com' || currentHostname.endsWith('.weba-ai.com')) {
+            return { allowed: true, isOwnDomain: true };
+        }
+        
         if (!config.allowedDomains || config.allowedDomains.length === 0) {
             return { allowed: true };
         }
-        const currentOrigin = window.location.origin;
         const currentUrl = window.location.href;
         
         for (const domain of config.allowedDomains) {
@@ -308,16 +315,21 @@ echo <<<JS
 
     // Check for errors (domain, limits)
     const domainCheck = checkDomain();
-    if (!domainCheck.allowed) {
-        widgetBlocked = true;
-        blockReason = {
-            code: domainCheck.code,
-            message: domainCheck.message,
-            upgradeUrl: config.upgradeUrl
-        };
-    } else if (config.error) {
-        widgetBlocked = true;
-        blockReason = config.error;
+    const isOwnDomain = domainCheck.isOwnDomain === true;
+    
+    // Skip all restrictions on weba-ai.com (our dashboard)
+    if (!isOwnDomain) {
+        if (!domainCheck.allowed) {
+            widgetBlocked = true;
+            blockReason = {
+                code: domainCheck.code,
+                message: domainCheck.message,
+                upgradeUrl: config.upgradeUrl
+            };
+        } else if (config.error) {
+            widgetBlocked = true;
+            blockReason = config.error;
+        }
     }
 
     const style = document.createElement('style');
@@ -590,26 +602,40 @@ echo <<<JS
         .salesbot-error-banner {
             position: fixed;
             right: 24px;
-            bottom: 110px;
-            z-index: 2147483646;
-            background: #dc2626;
+            bottom: auto;
+            top: 20px;
+            z-index: 2147483648;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
             color: #fff;
-            padding: 12px 16px;
+            padding: 14px 20px;
             border-radius: 12px;
             font-family: "Inter", system-ui, sans-serif;
-            font-size: 13px;
-            max-width: 320px;
-            box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4);
+            font-size: 14px;
+            max-width: 380px;
+            box-shadow: 0 10px 30px rgba(220, 38, 38, 0.5);
             display: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .salesbot-error-banner.visible {
             display: block;
-            animation: salesbot-appear 0.3s ease;
+            animation: salesbot-error-appear 0.4s ease;
+        }
+        @keyframes salesbot-error-appear {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .salesbot-error-banner a {
             color: #fef08a;
             font-weight: 600;
             text-decoration: underline;
+            display: inline-block;
+            margin-top: 8px;
         }
         .salesbot-error-banner a:hover {
             color: #fef9c3;
@@ -634,8 +660,9 @@ echo <<<JS
         @media (max-width: 768px) {
             .salesbot-error-banner {
                 right: 16px;
-                bottom: 85px;
-                max-width: calc(100vw - 32px);
+                left: 16px;
+                top: 10px;
+                max-width: none;
             }
         }
     `;
@@ -964,7 +991,8 @@ echo <<<JS
             .then((response) => response.json())
             .then((payload) => {
                 // Check if error returned (e.g., limit reached)
-                if (payload.error) {
+                // Skip blocking on our own domain (weba-ai.com dashboard)
+                if (payload.error && !isOwnDomain) {
                     hideTypingIndicator();
                     widgetBlocked = true;
                     blockReason = payload.error;
