@@ -120,10 +120,16 @@ try {
 
     if ($maxMessages !== null) {
         // Get usage for this user (all bots)
-        $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
-        $stmt->execute([$bot['owner_id'], $yearMonth]);
-        $usage = $stmt->fetch(PDO::FETCH_ASSOC);
-        $messagesUsed = (int)$usage['total'];
+        $messagesUsed = 0;
+        try {
+            $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
+            $stmt->execute([$bot['owner_id'], $yearMonth]);
+            $usage = $stmt->fetch(PDO::FETCH_ASSOC);
+            $messagesUsed = (int)$usage['total'];
+        } catch (PDOException $e) {
+            // message_usage table might not exist yet
+            $messagesUsed = 0;
+        }
 
         if ($messagesUsed >= (int)$maxMessages) {
             $errorCode = 'MESSAGE_LIMIT_REACHED';

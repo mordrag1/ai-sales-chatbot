@@ -153,7 +153,7 @@ if ($getCurrent) {
     $yearMonth = date('Y-m');
     $messagesUsed = 0;
     try {
-        $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
+        $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
         $stmt->execute([$userId, $yearMonth]);
         $usage = $stmt->fetch(PDO::FETCH_ASSOC);
         $messagesUsed = (int)$usage['total'];

@@ -88,13 +88,13 @@ if ($method === 'GET') {
     }
     
     // Get usage for this user (all bots)
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
     $stmt->execute([$bot['owner_id'], $yearMonth]);
     $usage = $stmt->fetch(PDO::FETCH_ASSOC);
     $messagesUsed = (int)$usage['total'];
     
     // Get usage for this specific bot
-    $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND year_month = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND `year_month` = ? LIMIT 1');
     $stmt->execute([$bot['id'], $yearMonth]);
     $botUsage = $stmt->fetch(PDO::FETCH_ASSOC);
     $botMessages = (int)($botUsage['message_count'] ?? 0);
@@ -153,7 +153,7 @@ if ($method === 'POST') {
     }
     
     // Check current usage
-    $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
+    $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
     $stmt->execute([$bot['owner_id'], $yearMonth]);
     $usage = $stmt->fetch(PDO::FETCH_ASSOC);
     $messagesUsed = (int)$usage['total'];

@@ -120,7 +120,7 @@ if ($method === 'POST') {
         
         if ($botInfo) {
             // Check current usage
-            $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND year_month = ?');
+            $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
             $stmt->execute([$botInfo['owner_id'], $yearMonth]);
             $usage = $stmt->fetch(PDO::FETCH_ASSOC);
             $messagesUsed = (int)$usage['total'];

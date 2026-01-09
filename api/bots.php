@@ -121,7 +121,7 @@ if ($method === 'GET') {
             // Get current month usage
             $yearMonth = date('Y-m');
             try {
-                $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND year_month = ? LIMIT 1');
+                $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND `year_month` = ? LIMIT 1');
                 $stmt->execute([$botId, $yearMonth]);
                 $usage = $stmt->fetch(PDO::FETCH_ASSOC);
             } catch (PDOException $e) {
@@ -146,7 +146,7 @@ if ($method === 'GET') {
             $yearMonth = date('Y-m');
             $usageMap = [];
             try {
-                $stmt = $pdo->prepare('SELECT bot_id, message_count FROM message_usage WHERE user_id = ? AND year_month = ?');
+                $stmt = $pdo->prepare('SELECT bot_id, message_count FROM message_usage WHERE user_id = ? AND `year_month` = ?');
                 $stmt->execute([$userId, $yearMonth]);
                 $usageRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($usageRows as $row) {
