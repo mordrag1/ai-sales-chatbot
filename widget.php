@@ -205,10 +205,38 @@ echo <<<JS
     const checkDomain = () => {
         const currentOrigin = window.location.origin;
         const currentHostname = window.location.hostname;
+        const currentProtocol = window.location.protocol;
+        
+        // Allow data: URLs (used for iframe previews on dashboard)
+        if (currentProtocol === 'data:' || currentOrigin === 'null' || currentOrigin.startsWith('data:')) {
+            // Try to check parent/top window domain
+            try {
+                const topHostname = window.top?.location?.hostname || '';
+                const parentHostname = window.parent?.location?.hostname || '';
+                if (topHostname.includes('weba-ai.com') || parentHostname.includes('weba-ai.com')) {
+                    return { allowed: true, isOwnDomain: true };
+                }
+            } catch (e) {
+                // Cross-origin access blocked - allow data: URLs as they're typically previews
+            }
+            // Allow all data: URLs as they're used for safe previews
+            return { allowed: true, isOwnDomain: true };
+        }
         
         // Always allow weba-ai.com (our own dashboard)
         if (currentHostname === 'weba-ai.com' || currentHostname === 'www.weba-ai.com' || currentHostname.endsWith('.weba-ai.com')) {
             return { allowed: true, isOwnDomain: true };
+        }
+        
+        // Try to detect if we're in an iframe on weba-ai.com
+        try {
+            const topHostname = window.top?.location?.hostname || '';
+            const parentHostname = window.parent?.location?.hostname || '';
+            if (topHostname.includes('weba-ai.com') || parentHostname.includes('weba-ai.com')) {
+                return { allowed: true, isOwnDomain: true };
+            }
+        } catch (e) {
+            // Cross-origin - can't check parent
         }
         
         if (!config.allowedDomains || config.allowedDomains.length === 0) {
