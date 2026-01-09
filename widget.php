@@ -321,7 +321,7 @@ echo <<<JS
     }
 
     const style = document.createElement('style');
-    style.textContent = \`
+    style.textContent = `
         .salesbot-widget {
             position: fixed;
             right: 24px;
@@ -638,7 +638,7 @@ echo <<<JS
                 max-width: calc(100vw - 32px);
             }
         }
-    \`;
+    `;
     document.head.appendChild(style);
 
     const widget = document.createElement('div');
@@ -646,12 +646,12 @@ echo <<<JS
 
     const header = document.createElement('div');
     header.className = 'salesbot-header';
-    header.innerHTML = \`
+    header.innerHTML = `
         <div class="salesbot-title-wrap">
             <span class="salesbot-header-status"></span>
             <span class="salesbot-title-text">\${config.title}</span>
         </div>
-    \`;
+    `;
     const headerTitleText = header.querySelector('.salesbot-title-text');
     const headerStatusDot = header.querySelector('.salesbot-header-status');
 
