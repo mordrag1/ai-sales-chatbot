@@ -89,9 +89,14 @@ try {
     }
 
     // Get plan info
-    $stmt = $pdo->prepare('SELECT * FROM plans WHERE id = ? LIMIT 1');
-    $stmt->execute([$bot['plan_id']]);
-    $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+    $plan = null;
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM plans WHERE id = ? LIMIT 1');
+        $stmt->execute([$bot['plan_id'] ?? 'demo']);
+        $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Plans table might not exist
+    }
 
     if (!$plan) {
         // Default to demo plan
@@ -110,8 +115,8 @@ try {
     $upgradeUrl = 'https://weba-ai.com/dashboard';
 
     // 1. Check domain restrictions
-    $planDomains = $plan['allowed_domains'] ? json_decode($plan['allowed_domains'], true) : null;
-    $botDomains = $bot['allowed_domains'] ? json_decode($bot['allowed_domains'], true) : null;
+    $planDomains = !empty($plan['allowed_domains']) ? json_decode($plan['allowed_domains'], true) : null;
+    $botDomains = !empty($bot['allowed_domains']) ? json_decode($bot['allowed_domains'], true) : null;
     $allowedDomains = $botDomains ?? $planDomains; // Bot domains override plan domains
 
     // 2. Check message limit for this month
@@ -171,14 +176,19 @@ try {
         'pollApiUrl' => $pollApiUrl,
         'usageApiUrl' => $usageApiUrl,
         'allowedDomains' => $allowedDomains,
-        'planId' => $plan['id'],
-        'planName' => $plan['name'],
+        'planId' => $plan['id'] ?? 'demo',
+        'planName' => $plan['name'] ?? 'Demo',
         'error' => $errorCode ? [
             'code' => $errorCode,
             'message' => $errorMessage,
             'upgradeUrl' => $upgradeUrl,
         ] : null,
-    ], JSON_UNESCAPED_UNICODE);
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    if ($jsConfig === false) {
+        echo 'console.error("Salesbot: failed to encode config");';
+        exit;
+    }
 
 echo <<<JS
 (function () {
