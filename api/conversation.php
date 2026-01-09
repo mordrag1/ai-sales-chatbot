@@ -106,48 +106,53 @@ if ($method === 'POST') {
     // Track message usage if botHash provided and message is from user
     $yearMonth = date('Y-m');
     if ($botHash !== '' && $message !== null && ($message['role'] ?? '') === 'user') {
-        // Get bot info for usage tracking
-        $stmt = $pdo->prepare('
-            SELECT b.id as bot_id, b.user_id as owner_id, p.max_messages_per_month 
-            FROM bots b 
-            JOIN users u ON b.user_id = u.id 
-            LEFT JOIN plans p ON u.plan_id = p.id 
-            WHERE b.bot_hash = ? 
-            LIMIT 1
-        ');
-        $stmt->execute([$botHash]);
-        $botInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($botInfo) {
-            // Check current usage
-            $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
-            $stmt->execute([$botInfo['owner_id'], $yearMonth]);
-            $usage = $stmt->fetch(PDO::FETCH_ASSOC);
-            $messagesUsed = (int)$usage['total'];
-            $maxMessages = $botInfo['max_messages_per_month'];
-            
-            // Check limit
-            if ($maxMessages !== null && $messagesUsed >= (int)$maxMessages) {
-                http_response_code(403);
-                echo json_encode([
-                    'error' => [
-                        'code' => 'MESSAGE_LIMIT_REACHED',
-                        'message' => "Message limit reached ({$messagesUsed}/{$maxMessages} this month). Upgrade your plan to continue.",
-                        'upgradeUrl' => 'https://weba-ai.com/dashboard',
-                    ],
-                ]);
-                exit;
-            }
-            
-            // Increment usage
+        try {
+            // Get bot info for usage tracking
             $stmt = $pdo->prepare('
-                INSERT INTO message_usage (user_id, bot_id, year_month, message_count, last_message_at)
-                VALUES (?, ?, ?, 1, NOW())
-                ON DUPLICATE KEY UPDATE 
-                    message_count = message_count + 1,
-                    last_message_at = NOW()
+                SELECT b.id as bot_id, b.user_id as owner_id, p.max_messages_per_month 
+                FROM bots b 
+                JOIN users u ON b.user_id = u.id 
+                LEFT JOIN plans p ON u.plan_id = p.id 
+                WHERE b.bot_hash = ? 
+                LIMIT 1
             ');
-            $stmt->execute([$botInfo['owner_id'], $botInfo['bot_id'], $yearMonth]);
+            $stmt->execute([$botHash]);
+            $botInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($botInfo) {
+                // Check current usage
+                $stmt = $pdo->prepare('SELECT COALESCE(SUM(message_count), 0) as total FROM message_usage WHERE user_id = ? AND `year_month` = ?');
+                $stmt->execute([$botInfo['owner_id'], $yearMonth]);
+                $usage = $stmt->fetch(PDO::FETCH_ASSOC);
+                $messagesUsed = (int)$usage['total'];
+                $maxMessages = $botInfo['max_messages_per_month'];
+                
+                // Check limit (skip on weba-ai.com)
+                $isOwnDomain = strpos($_SERVER['HTTP_ORIGIN'] ?? '', 'weba-ai.com') !== false;
+                if (!$isOwnDomain && $maxMessages !== null && $messagesUsed >= (int)$maxMessages) {
+                    http_response_code(403);
+                    echo json_encode([
+                        'error' => [
+                            'code' => 'MESSAGE_LIMIT_REACHED',
+                            'message' => "Message limit reached ({$messagesUsed}/{$maxMessages} this month). Upgrade your plan to continue.",
+                            'upgradeUrl' => 'https://weba-ai.com/dashboard',
+                        ],
+                    ]);
+                    exit;
+                }
+                
+                // Increment usage
+                $stmt = $pdo->prepare('
+                    INSERT INTO message_usage (user_id, bot_id, `year_month`, message_count, last_message_at)
+                    VALUES (?, ?, ?, 1, NOW())
+                    ON DUPLICATE KEY UPDATE 
+                        message_count = message_count + 1,
+                        last_message_at = NOW()
+                ');
+                $stmt->execute([$botInfo['owner_id'], $botInfo['bot_id'], $yearMonth]);
+            }
+        } catch (PDOException $e) {
+            // Usage tracking failed (tables might not exist), but continue saving conversation
         }
     }
     
