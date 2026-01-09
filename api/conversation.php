@@ -112,6 +112,10 @@ if ($method === 'POST') {
     $pageUrl = $payload['pageUrl'] ?? null;
     $referrer = $payload['referrer'] ?? null;
     
+    // Truncate long values to fit database columns
+    if ($pageUrl !== null) $pageUrl = mb_substr($pageUrl, 0, 2000);
+    if ($referrer !== null) $referrer = mb_substr($referrer, 0, 255);
+    
     if ($clientId === '' || $userId === '') {
         http_response_code(400);
         echo json_encode(['error' => 'clientId and userId are required']);
