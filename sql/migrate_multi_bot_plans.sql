@@ -65,10 +65,16 @@ CREATE TABLE IF NOT EXISTS `message_usage` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. Update users table: add plan-related fields
-ALTER TABLE `users` 
-  ADD COLUMN IF NOT EXISTS `plan_expires_at` TIMESTAMP NULL AFTER `plan_id`,
-  ADD COLUMN IF NOT EXISTS `messages_this_month` INT unsigned NOT NULL DEFAULT 0 AFTER `plan_expires_at`,
-  ADD COLUMN IF NOT EXISTS `current_month` CHAR(7) NULL AFTER `messages_this_month`;
+-- Run these one by one, ignore errors if column already exists
+
+ALTER TABLE `users` ADD COLUMN `plan_expires_at` TIMESTAMP NULL AFTER `plan_id`;
+-- If error "Duplicate column name", column already exists - skip
+
+ALTER TABLE `users` ADD COLUMN `messages_this_month` INT unsigned NOT NULL DEFAULT 0 AFTER `plan_expires_at`;
+-- If error "Duplicate column name", column already exists - skip
+
+ALTER TABLE `users` ADD COLUMN `current_month` CHAR(7) NULL AFTER `messages_this_month`;
+-- If error "Duplicate column name", column already exists - skip
 
 -- 5. Migrate existing widget data to bots table (for existing users)
 -- This creates a bot for each user that had widget settings
