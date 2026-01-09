@@ -15,8 +15,9 @@ declare(strict_types=1);
  * Requires X-Auth-Token header (bot owner authentication)
  */
 
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -24,6 +25,8 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, X-
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    echo json_encode(['status' => 'ok']);
     exit;
 }
 
@@ -32,6 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     echo json_encode(['error' => 'Method not allowed']);
     exit;
 }
+
+// Global error handler
+set_error_handler(function($severity, $message, $file, $line) {
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+try {
 
 // Load environment
 $envFile = __DIR__ . '/../.env';
@@ -209,4 +219,13 @@ echo json_encode([
         'has_more' => ($offset + $limit) < $total,
     ],
 ]);
+
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Internal server error',
+        'message' => $e->getMessage(),
+        'code' => 'SERVER_ERROR'
+    ]);
+}
 
