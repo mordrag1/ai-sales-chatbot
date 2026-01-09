@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
 
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -10,8 +11,22 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, X-
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    echo json_encode(['status' => 'ok']);
     exit;
 }
+
+// Global error handler
+set_exception_handler(function($e) {
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Server error',
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ]);
+    exit;
+});
 
 // Load environment
 $envFile = __DIR__ . '/../.env';
