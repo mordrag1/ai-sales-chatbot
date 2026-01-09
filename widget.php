@@ -226,7 +226,7 @@ echo <<<JS
         }
         return { 
             allowed: false, 
-            message: 'This widget is not authorized for domain: ' + currentOrigin + '. Allowed: ' + config.allowedDomains.join(', '),
+            message: 'To use this chatbot on your website, please upgrade your plan.',
             code: 'DOMAIN_NOT_ALLOWED'
         };
     };
