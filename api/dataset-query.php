@@ -6,14 +6,14 @@ declare(strict_types=1);
  * 
  * POST /api/dataset-query.php
  * Parameters:
- *   client_id (required): User's client ID
+ *   bot_hash (required): Bot's unique hash
  *   question (required): Question text to append
  * 
  * Response: Plain text format
  * 
  * dataset:
  * 
- * *** [JSON dataset content]
+ * *** [dataset content]
  * 
  * question: *** [question from request]
  */
@@ -82,15 +82,17 @@ try {
     exit;
 }
 
+// Accept bot_hash (new) or client_id (legacy)
+$botHash = $input['bot_hash'] ?? $input['botHash'] ?? '';
 $clientId = $input['client_id'] ?? $input['clientId'] ?? '';
 $question = $input['question'] ?? $input['q'] ?? '';
 
-if ($clientId === '') {
+if ($botHash === '' && $clientId === '') {
     http_response_code(400);
     if ($format === 'json') {
-        echo json_encode(['error' => 'client_id is required']);
+        echo json_encode(['error' => 'bot_hash is required']);
     } else {
-        echo "Error: client_id is required";
+        echo "Error: bot_hash is required";
     }
     exit;
 }
@@ -105,25 +107,49 @@ if ($question === '') {
     exit;
 }
 
-// Get user and dataset
-$stmt = $pdo->prepare('SELECT id, dataset FROM users WHERE client_id = ? LIMIT 1');
-$stmt->execute([$clientId]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+$dataset = null;
+$identifier = '';
 
-if (!$user) {
+// Try to get from bots table first (new system)
+if ($botHash !== '') {
+    try {
+        $stmt = $pdo->prepare('SELECT id, bot_hash, dataset FROM bots WHERE bot_hash = ? LIMIT 1');
+        $stmt->execute([$botHash]);
+        $bot = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($bot) {
+            $dataset = $bot['dataset'];
+            $identifier = $bot['bot_hash'];
+        }
+    } catch (PDOException $e) {
+        // Bots table might not exist
+    }
+}
+
+// Fallback to users table (legacy)
+if ($dataset === null && $clientId !== '') {
+    $stmt = $pdo->prepare('SELECT id, client_id, dataset FROM users WHERE client_id = ? LIMIT 1');
+    $stmt->execute([$clientId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($user) {
+        $dataset = $user['dataset'];
+        $identifier = $user['client_id'];
+    }
+}
+
+if ($dataset === null) {
     http_response_code(404);
     if ($format === 'json') {
-        echo json_encode(['error' => 'User not found']);
+        echo json_encode(['error' => 'Bot not found']);
     } else {
-        echo "Error: User not found";
+        echo "Error: Bot not found";
     }
     exit;
 }
 
-$dataset = $user['dataset'] ?? '[]';
-
 // Decode and re-encode for pretty formatting
-$datasetArray = json_decode($dataset, true);
+$datasetArray = json_decode($dataset ?? '[]', true);
 if (!is_array($datasetArray)) {
     $datasetArray = [];
 }
@@ -132,7 +158,8 @@ if (!is_array($datasetArray)) {
 if ($format === 'json') {
     echo json_encode([
         'success' => true,
-        'client_id' => $clientId,
+        'bot_hash' => $botHash ?: null,
+        'client_id' => $clientId ?: null,
         'dataset' => $datasetArray,
         'question' => $question,
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -163,11 +190,10 @@ if ($format === 'json') {
     
     // If dataset is empty or couldn't be parsed, show raw
     if (trim($datasetText) === '') {
-        $datasetText = $user['dataset'] ?? '';
+        $datasetText = $dataset ?? '';
     }
     
     echo "dataset:\n\n";
     echo "*** " . trim($datasetText) . "\n\n";
     echo "question: *** " . $question;
 }
-

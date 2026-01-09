@@ -8,10 +8,13 @@ declare(strict_types=1);
  * 
  * POST /api/push.php
  * Form data or JSON:
- *   clientId (or client_id): "1"
+ *   botHash (or bot_hash): "a1b2c3d4..." (32 char hash)
  *   userId (or user_id): "v-abc123"
  *   text: "Hello!"
  *   role: "assistant" (optional, defaults to "assistant")
+ * 
+ * Legacy support:
+ *   clientId (or client_id): "1" (falls back to users table)
  */
 
 error_reporting(0);
@@ -88,12 +91,28 @@ if (!empty($_GET)) {
     }
 }
 
+// Accept bot_hash (new) or client_id (legacy)
+$botHash = $payload['botHash'] ?? $payload['bot_hash'] ?? '';
 $clientId = $payload['clientId'] ?? $payload['client_id'] ?? '';
 $userId = $payload['userId'] ?? $payload['user_id'] ?? '';
 
+// Resolve clientId from botHash if needed
+if ($botHash !== '' && $clientId === '') {
+    try {
+        $stmt = $pdo->prepare('SELECT b.id, u.client_id FROM bots b JOIN users u ON b.user_id = u.id WHERE b.bot_hash = ? LIMIT 1');
+        $stmt->execute([$botHash]);
+        $bot = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($bot) {
+            $clientId = $bot['client_id'];
+        }
+    } catch (PDOException $e) {
+        // Bots table might not exist
+    }
+}
+
 if ($clientId === '' || $userId === '') {
     http_response_code(400);
-    echo json_encode(['error' => 'clientId and userId are required']);
+    echo json_encode(['error' => 'botHash (or clientId) and userId are required']);
     exit;
 }
 
@@ -162,5 +181,6 @@ echo json_encode([
     'success' => true,
     'inserted' => count($insertedIds),
     'ids' => $insertedIds,
+    'bot_hash' => $botHash ?: null,
+    'client_id' => $clientId,
 ]);
-
