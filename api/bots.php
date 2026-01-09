@@ -13,8 +13,10 @@ declare(strict_types=1);
  * All endpoints require X-Auth-Token header
  */
 
-error_reporting(0);
+// Enable error reporting for debugging
+error_reporting(E_ALL);
 ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -76,14 +78,20 @@ $userId = (int)$user['id'];
 $planId = $user['plan_id'];
 
 // Get plan limits
-$stmt = $pdo->prepare('SELECT * FROM plans WHERE id = ? LIMIT 1');
-$stmt->execute([$planId]);
-$plan = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    $stmt = $pdo->prepare('SELECT * FROM plans WHERE id = ? LIMIT 1');
+    $stmt->execute([$planId]);
+    $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Plans table might not exist yet
+    $plan = null;
+}
 
 if (!$plan) {
     // Fallback to demo plan
     $plan = [
         'id' => 'demo',
+        'name' => 'Demo',
         'max_bots' => 1,
         'max_messages_per_month' => 500,
         'allowed_domains' => '["https://weba-ai.com"]',
@@ -97,54 +105,63 @@ $botId = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
 // GET - List bots or get specific bot
 if ($method === 'GET') {
-    if ($botId !== null) {
-        // Get specific bot
-        $stmt = $pdo->prepare('SELECT * FROM bots WHERE id = ? AND user_id = ? LIMIT 1');
-        $stmt->execute([$botId, $userId]);
-        $bot = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$bot) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Bot not found', 'code' => 'BOT_NOT_FOUND']);
-            exit;
-        }
-        
-        // Get current month usage
-        $yearMonth = date('Y-m');
-        $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND year_month = ? LIMIT 1');
-        $stmt->execute([$botId, $yearMonth]);
-        $usage = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        echo json_encode([
-            'success' => true,
-            'bot' => formatBot($bot),
-            'usage' => [
-                'messages_this_month' => (int)($usage['message_count'] ?? 0),
-                'limit' => $plan['max_messages_per_month'],
-            ],
-        ]);
-    } else {
-        // List all bots
-        $stmt = $pdo->prepare('SELECT * FROM bots WHERE user_id = ? ORDER BY created_at DESC');
-        $stmt->execute([$userId]);
-        $bots = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Get usage for current month
-        $yearMonth = date('Y-m');
-        $stmt = $pdo->prepare('SELECT bot_id, message_count FROM message_usage WHERE user_id = ? AND year_month = ?');
-        $stmt->execute([$userId, $yearMonth]);
-        $usageRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $usageMap = [];
-        foreach ($usageRows as $row) {
-            $usageMap[(int)$row['bot_id']] = (int)$row['message_count'];
-        }
-        
-        $result = [];
-        foreach ($bots as $bot) {
-            $formatted = formatBot($bot);
-            $formatted['messages_this_month'] = $usageMap[(int)$bot['id']] ?? 0;
-            $result[] = $formatted;
-        }
+    try {
+        if ($botId !== null) {
+            // Get specific bot
+            $stmt = $pdo->prepare('SELECT * FROM bots WHERE id = ? AND user_id = ? LIMIT 1');
+            $stmt->execute([$botId, $userId]);
+            $bot = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$bot) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Bot not found', 'code' => 'BOT_NOT_FOUND']);
+                exit;
+            }
+            
+            // Get current month usage
+            $yearMonth = date('Y-m');
+            try {
+                $stmt = $pdo->prepare('SELECT message_count FROM message_usage WHERE bot_id = ? AND year_month = ? LIMIT 1');
+                $stmt->execute([$botId, $yearMonth]);
+                $usage = $stmt->fetch(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                $usage = null;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'bot' => formatBot($bot),
+                'usage' => [
+                    'messages_this_month' => (int)($usage['message_count'] ?? 0),
+                    'limit' => $plan['max_messages_per_month'],
+                ],
+            ]);
+        } else {
+            // List all bots
+            $stmt = $pdo->prepare('SELECT * FROM bots WHERE user_id = ? ORDER BY created_at DESC');
+            $stmt->execute([$userId]);
+            $bots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get usage for current month
+            $yearMonth = date('Y-m');
+            $usageMap = [];
+            try {
+                $stmt = $pdo->prepare('SELECT bot_id, message_count FROM message_usage WHERE user_id = ? AND year_month = ?');
+                $stmt->execute([$userId, $yearMonth]);
+                $usageRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($usageRows as $row) {
+                    $usageMap[(int)$row['bot_id']] = (int)$row['message_count'];
+                }
+            } catch (PDOException $e) {
+                // message_usage table might not exist
+            }
+            
+            $result = [];
+            foreach ($bots as $bot) {
+                $formatted = formatBot($bot);
+                $formatted['messages_this_month'] = $usageMap[(int)$bot['id']] ?? 0;
+                $result[] = $formatted;
+            }
         
         echo json_encode([
             'success' => true,
@@ -152,11 +169,27 @@ if ($method === 'GET') {
             'count' => count($result),
             'plan' => [
                 'id' => $plan['id'],
-                'name' => $plan['name'],
+                'name' => $plan['name'] ?? 'Demo',
                 'max_bots' => $plan['max_bots'],
                 'max_messages_per_month' => $plan['max_messages_per_month'],
             ],
             'can_create_more' => count($result) < $maxBots,
+        ]);
+        }
+    } catch (PDOException $e) {
+        // Bots table might not exist - return empty list
+        echo json_encode([
+            'success' => true,
+            'bots' => [],
+            'count' => 0,
+            'plan' => [
+                'id' => $plan['id'],
+                'name' => $plan['name'] ?? 'Demo',
+                'max_bots' => $plan['max_bots'],
+                'max_messages_per_month' => $plan['max_messages_per_month'],
+            ],
+            'can_create_more' => true,
+            'notice' => 'Bots table not initialized. Run SQL migration.',
         ]);
     }
     exit;
