@@ -173,13 +173,14 @@ if ($visitorId !== '') {
 }
 
 // List all conversations for this bot
+// Note: $limit and $offset are already sanitized as integers above
 $stmt = $pdo->prepare("
     SELECT * FROM conversations 
     WHERE client_id = ? 
     ORDER BY last_message_at $sort 
-    LIMIT ? OFFSET ?
+    LIMIT $limit OFFSET $offset
 ");
-$stmt->execute([$botClientId, $limit, $offset]);
+$stmt->execute([$botClientId]);
 $conversations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get total count
