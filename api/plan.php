@@ -47,12 +47,9 @@ if (!in_array($planId, $validPlans, true)) {
 // Подключение к БД
 try {
     $pdo = new PDO(
-        sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4',
-            getenv('DB_HOST') ?: 'localhost',
-            getenv('DB_NAME') ?: 'salesbot'
-        ),
-        getenv('DB_USER') ?: 'root',
-        getenv('DB_PASS') ?: '',
+        'mysql:host=localhost;dbname=aicdn;charset=utf8mb4',
+        'aicdn',
+        'xM0iF4mW5l',
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
