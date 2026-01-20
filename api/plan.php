@@ -23,17 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Допустимые планы
 $validPlans = ['demo', 'start', 'pro', 'max'];
 
-// API ключ для авторизации (установить в переменной окружения)
-$apiSecret = getenv('PLAN_API_SECRET') ?: '';
-
-// Проверка авторизации
-$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-if ($apiSecret !== '' && $authHeader !== "Bearer {$apiSecret}") {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
-
 // Получение данных
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $email = trim($input['email'] ?? '');

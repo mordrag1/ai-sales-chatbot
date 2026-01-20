@@ -9,7 +9,6 @@
 ```http
 POST /api/plan.php
 Content-Type: application/json
-Authorization: Bearer <API_SECRET>
 ```
 
 ```json
@@ -62,29 +61,11 @@ Authorization: Bearer <API_SECRET>
 }
 ```
 
-**Не авторизован (401):**
-```json
-{
-  "success": false,
-  "error": "Unauthorized"
-}
-```
-
 ### Пример cURL
 
 ```bash
 curl -X POST https://api.weba-ai.com/api/plan.php \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_SECRET" \
   -d '{"email": "user@example.com", "plan_id": "pro"}'
 ```
-
-### Настройка
-
-Установить переменную окружения для авторизации:
-```
-PLAN_API_SECRET=your_secret_key
-```
-
-Если `PLAN_API_SECRET` не задан — авторизация отключена.
 
