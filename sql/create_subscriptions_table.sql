@@ -35,3 +35,4 @@ CREATE TABLE `webhook_logs` (
   KEY `idx_webhook_logs_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
