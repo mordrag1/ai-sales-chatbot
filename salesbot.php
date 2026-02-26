@@ -28,6 +28,13 @@ echo <<<'JS'
         soundSrc: dataset.salesbotSound || 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=',
         soundEnabled: rawSoundEnabled === undefined ? true : String(rawSoundEnabled).toLowerCase() !== 'false',
         errorMessage: dataset.salesbotError || 'Something went wrong. Please try again soon.',
+        // Тестовый режим: включается, если data-salesbot-testmode="1" | "true" | "yes"
+        testMode: (() => {
+            const raw = dataset.salesbotTestmode;
+            if (raw === undefined) return false;
+            const v = String(raw).toLowerCase();
+            return v === '1' || v === 'true' || v === 'yes';
+        })(),
     };
     const MOBILE_BREAKPOINT = 768;
     let hasOpened = false;
@@ -281,6 +288,65 @@ echo <<<'JS'
                 transform: translateY(0) scale(1);
             }
         }
+        /* Тестовый режим: мигающая кнопка и заметная подсказка со стрелкой */
+        .salesbot-toggle.testmode {
+            animation: salesbot-testmode-blink 1s ease-in-out infinite;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.75);
+        }
+        @keyframes salesbot-testmode-blink {
+            0% {
+                transform: translateY(0) scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
+                filter: brightness(1);
+            }
+            50% {
+                transform: translateY(-2px) scale(1.03);
+                box-shadow: 0 0 18px 4px rgba(239, 68, 68, 0.9);
+                filter: brightness(1.2);
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0);
+                filter: brightness(1);
+            }
+        }
+        .salesbot-testmode-hint {
+            position: fixed;
+            right: 24px;
+            bottom: 110px;
+            background: #f97316;
+            color: #111827;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 30px rgba(249, 115, 22, 0.55);
+            z-index: 2147483645;
+            pointer-events: none;
+        }
+        .salesbot-testmode-hint-arrow {
+            width: 0;
+            height: 0;
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 8px solid #f97316;
+        }
+        @media (max-width: 768px) {
+            .salesbot-toggle {
+                right: 16px;
+                bottom: 14px;
+                box-shadow: 0 8px 25px rgba(37, 99, 235, 0.45);
+            }
+            .salesbot-testmode-hint {
+                right: 16px;
+                bottom: 90px;
+                max-width: 70vw;
+                text-align: left;
+            }
+        }
         .salesbot-typing {
             padding: 10px 14px;
             border-radius: 12px;
@@ -468,6 +534,9 @@ echo <<<'JS'
     const toggle = document.createElement('button');
     toggle.className = 'salesbot-toggle';
     toggle.innerHTML = '<span class="salesbot-toggle-status" aria-hidden="true"></span><span class="salesbot-toggle-label">Manager Online</span><span class="salesbot-unread-dot" aria-hidden="true"></span>';
+    if (config.testMode) {
+        toggle.classList.add('testmode');
+    }
     const isMobileViewport = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     const applyResponsiveState = () => {
@@ -494,6 +563,8 @@ echo <<<'JS'
         applyResponsiveState();
         updateToggleState();
         input.focus();
+        // При первом открытии в тестовом режиме скрываем подсказку
+        hideTestmodeHint();
     };
 
     const closeWidget = () => {
@@ -511,6 +582,27 @@ echo <<<'JS'
         openWidget();
     });
     document.body.appendChild(toggle);
+
+    // Подсказка для тестового режима
+    let testmodeHint = null;
+    const ensureTestmodeHint = () => {
+        if (!config.testMode || testmodeHint) {
+            return;
+        }
+        testmodeHint = document.createElement('div');
+        testmodeHint.className = 'salesbot-testmode-hint';
+        testmodeHint.innerHTML = '<span>Click here to test the chat</span><span class="salesbot-testmode-hint-arrow" aria-hidden="true"></span>';
+        document.body.appendChild(testmodeHint);
+    };
+    const hideTestmodeHint = () => {
+        if (testmodeHint) {
+            testmodeHint.remove();
+            testmodeHint = null;
+        }
+    };
+    if (config.testMode) {
+        ensureTestmodeHint();
+    }
 
     setUnread(historyState.hasUnread);
 
