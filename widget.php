@@ -812,7 +812,7 @@ echo <<<JS
     // Developer footer
     const footer = document.createElement('div');
     footer.className = 'salesbot-footer';
-    footer.innerHTML = 'Powered by <a href="' + config.developerUrl + '" target="_blank" rel="noopener">WebA AI</a>';
+    footer.innerHTML = 'Powered by <a href="' + config.developerUrl + '" target="_blank" rel="noopener">Website sales chatbot - WebA AI</a>';
 
     const typingIndicator = document.createElement('div');
     typingIndicator.className = 'salesbot-typing';
